@@ -11,13 +11,12 @@ export const settings = await ReactiveStore.getPluginStorage<{
 
 export const unloads = new Set<LunaUnload>();
 const avatarCSS = new StyleTag("avatarCSS", unloads);
-const hash = await md5(redux.store.getState().user.meta.email);
 
 function applyAvatarCSS() {
 	// Thx @n1ckoates
 	avatarCSS.css = `
     	[class^="_profilePicture_"] {
-      		background-image: url("${settings.customUrl ?? `https://www.gravatar.com/avatar/${hash}?d=identicon`}");
+      		background-image: url("${settings.customUrl}");
       		background-size: cover;
     	}
     	[class^="_profilePicture_"] svg {
@@ -27,16 +26,18 @@ function applyAvatarCSS() {
 }
 
 applyAvatarCSS();
-
 export const Settings = () => {
 	const [customUrl, setCustomUrl] = React.useState(settings.customUrl);
 
-	md5(redux.store.getState().user.meta.email).then((mailHash) => {
-		if (customUrl === "" || customUrl === undefined)
-			setCustomUrl(`https://www.gravatar.com/avatar/${mailHash}?d=identicon`);
-	});
+	React.useEffect(() => {
+		md5(redux.store.getState().user.meta.email).then((mailHash) => {
+			if (customUrl === "" || customUrl === undefined)
+				setCustomUrl(settings.customUrl = `https://www.gravatar.com/avatar/${mailHash}?d=identicon`);
+		});
 
-	React.useEffect(applyAvatarCSS, [customUrl])
+		applyAvatarCSS()
+
+	}, [customUrl])
 
 	return (
 		<LunaSettings>
