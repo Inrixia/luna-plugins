@@ -9,12 +9,14 @@ import { updateActivity } from "./updateActivity";
 export const settings = await ReactiveStore.getPluginStorage("DiscordRPC", {
 	displayOnPause: true,
 	displayArtistIcon: true,
+	displayPlaylistButton: true,
 	status: 1,
 });
 
 export const Settings = () => {
 	const [displayOnPause, setDisplayOnPause] = React.useState(settings.displayOnPause);
 	const [displayArtistIcon, setDisplayArtistIcon] = React.useState(settings.displayArtistIcon);
+	const [displayPlaylistButton, setDisplayPlaylistButton] = React.useState(settings.displayPlaylistButton)
 	const [status, setStatus] = React.useState(settings.status);
 
 	return (
@@ -43,9 +45,21 @@ export const Settings = () => {
 						.catch(trace.err.withContext("Failed to set activity"));
 				}}
 			/>
+			<LunaSwitchSetting
+				title="Display playlist button"
+				desc="When playing a playlist a button appears for it in the activity"
+				tooltip="Display playlist button"
+				checked={displayPlaylistButton}
+				onChange={(_, checked) => {
+					setDisplayPlaylistButton((settings.displayPlaylistButton = checked));
+					updateActivity()
+						.then(() => (errSignal!._ = undefined))
+						.catch(trace.err.withContext("Failed to set activity"));
+				}}
+			/>
 			<LunaSelectSetting
 				title="Status text"
-				desc="What text that you're 'Listening to' in your Discord status."
+				desc="What text that you're 'Listening to' in your Discord status"
 				value={status}
 				onChange={(e) => setStatus((settings.status = parseInt(e.target.value)))}
 			>

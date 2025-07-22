@@ -18,24 +18,26 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	mediaItem ??= await MediaItem.fromPlaybackContext();
 	if (mediaItem === undefined) return;
 
-	const { sourceName, sourceUrl } = redux.store.getState().playQueue;
+	const { sourceUrl, sourceEntityType } = redux.store.getState().playQueue;
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
 	const trackUrl = `https://tidal.com/browse/${mediaItem.tidalItem.contentType}/${mediaItem.id}?u`
-
 	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
 		{
 			url: trackUrl,
 			label: "Play Song",
-		},
-		{
-			url: trackSourceUrl,
-			label: `${fmtStr(sourceName) ?? "Unknown Source"}`,
 		}
 	];
+
+	if (sourceEntityType === "playlist" && settings.displayPlaylistButton) {
+		activity.buttons.push({
+			url: trackSourceUrl,
+			label: "Playlist",
+		});
+	}
 
 	const artist = await mediaItem.artist();
 	const artistUrl = `https://tidal.com/browse/artist/${artist?.id}?u`;
