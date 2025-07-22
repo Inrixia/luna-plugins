@@ -1,5 +1,5 @@
 import { asyncDebounce } from "@inrixia/helpers";
-import { MediaItem, PlayState } from "@luna/lib";
+import { MediaItem, PlayState, redux } from "@luna/lib";
 
 import type { SetActivity } from "@xhayper/discord-rpc";
 import { setActivity } from "./discord.native";
@@ -18,15 +18,23 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	mediaItem ??= await MediaItem.fromPlaybackContext();
 	if (mediaItem === undefined) return;
 
+	const { sourceName, sourceUrl } = redux.store.getState().playQueue;
+
 	const activity: SetActivity = { type: 2 }; // Listening type
 
 	const trackUrl = `https://tidal.com/browse/${mediaItem.tidalItem.contentType}/${mediaItem.id}?u`
+
+	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
 		{
 			url: trackUrl,
 			label: "Play Song",
 		},
+		{
+			url: trackSourceUrl,
+			label: `${fmtStr(sourceName) ?? "Unknown Source"}`,
+		}
 	];
 
 	const artist = await mediaItem.artist();
