@@ -12,13 +12,10 @@ formatInfoElem.className = "format-info";
 unloads.add(() => formatInfoElem.remove());
 
 const setupInfoElem = memoizeArgless(async () => {
-	const qualitySelector = await observePromise<HTMLElement>(unloads, `[data-test-media-state-indicator-streaming-quality]`);
-	if (qualitySelector == null) throw new Error("Failed to find tidal media-state-indicator element!");
+	const qualityIndicator = await observePromise<HTMLElement>(unloads, `[data-test-media-state-indicator-streaming-quality]`);
+	if (qualityIndicator == null) throw new Error("Failed to find tidal media-state-indicator element!");
 
-	const qualityIndicator = <HTMLElement>qualitySelector.firstChild;
-	if (qualityIndicator === null) throw new Error("Failed to find tidal media-state-indicator element children!");
-
-	const qualityElementContainer = qualitySelector.parentElement;
+	const qualityElementContainer = qualityIndicator.parentElement;
 	if (qualityElementContainer == null) throw new Error("Failed to find tidal media-state-indicator element parent!");
 
 	// Ensure no duplicate/leftover elements before prepending
@@ -43,6 +40,7 @@ export const setFormatInfo = async (mediaItem?: MediaItem) => {
 	const audioQuality = PlayState.playbackContext.actualAudioQuality;
 
 	const qualityColor = Quality.fromAudioQuality(audioQuality);
+	console.log(qualityIndicator.style);
 	const color = (progressBar.style.color = qualityIndicator.style.color = qualityColor?.color ?? "#cfcfcf");
 	if (settings.displayFormatBorder) formatInfoElem.style.border = `solid 1px ${hexToRgba(color, 0.3)}`;
 	else formatInfoElem.style.border = "none";
