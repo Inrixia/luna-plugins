@@ -40,7 +40,6 @@ export const setFormatInfo = async (mediaItem?: MediaItem) => {
 	const audioQuality = PlayState.playbackContext.actualAudioQuality;
 
 	const qualityColor = Quality.fromAudioQuality(audioQuality);
-	console.log(qualityIndicator.style);
 	const color = (progressBar.style.color = qualityIndicator.style.color = qualityColor?.color ?? "#cfcfcf");
 	if (settings.displayFormatBorder) formatInfoElem.style.border = `solid 1px ${hexToRgba(color, 0.3)}`;
 	else formatInfoElem.style.border = "none";
