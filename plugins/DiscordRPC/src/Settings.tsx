@@ -66,6 +66,9 @@ export const Settings = () => {
 				onChange={(e) => {
 					const newStatus = parseInt(e.target.value);
 					setStatus((settings.status = newStatus));
+					updateActivity()
+						.then(() => (errSignal!._ = undefined))
+						.catch(trace.err.withContext("Failed to set activity"));
 				}}
 			>
 				<LunaSelectItem value="0" children="Listening to TIDAL" />
@@ -93,6 +96,9 @@ export const Settings = () => {
 					value={customStatusText}
 					onChange={(e) => {
 						setCustomStatusText((settings.customStatusText = e.target.value));
+						updateActivity()
+							.then(() => (errSignal!._ = undefined))
+							.catch(trace.err.withContext("Failed to set activity"));
 					}}
 				/>
 			)}
