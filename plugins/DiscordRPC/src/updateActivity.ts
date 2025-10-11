@@ -4,13 +4,7 @@ import { MediaItem, PlayState, redux } from "@luna/lib";
 import type { SetActivity } from "@xhayper/discord-rpc";
 import { setActivity } from "./discord.native";
 import { settings } from "./Settings";
-
-const STR_MAX_LEN = 127;
-const fmtStr = (s?: string) => {
-	if (!s) return;
-	if (s.length < 2) s += " ";
-	return s.length >= STR_MAX_LEN ? s.slice(0, STR_MAX_LEN - 3) + "..." : s;
-};
+import { fmtStr, getStatusText } from "./activityTextHelpers"
 
 export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	if (!PlayState.playing && !settings.displayOnPause) return await setActivity();
@@ -22,7 +16,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
-	const trackUrl = `https://tidal.com/browse/${mediaItem.tidalItem.contentType}/${mediaItem.id}?u`
+	const trackUrl = `https://tidal.com/browse/${mediaItem.tidalItem.contentType}/${mediaItem.id}?u`;
 	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
@@ -42,12 +36,13 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	const artist = await mediaItem.artist();
 	const artistUrl = `https://tidal.com/browse/artist/${artist?.id}?u`;
 
-	// Status text
-	activity.statusDisplayType = settings.status;
+	// Status text (if this is custom, we want to display our message)
+	activity.statusDisplayType = settings.status == 3 ? 2 : settings.status;
 
 	// Title
-	activity.details = await mediaItem.title().then(fmtStr);
+	activity.details = await getStatusText(mediaItem);
 	activity.detailsUrl = trackUrl;
+
 	// Artists
 	const artistNames = await MediaItem.artistNames(await mediaItem.artists());
 	activity.state = fmtStr(artistNames.join(", ")) ?? "Unknown Artist";
