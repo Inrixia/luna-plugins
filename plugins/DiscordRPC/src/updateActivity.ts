@@ -4,7 +4,7 @@ import { MediaItem, PlayState, redux } from "@luna/lib";
 import type { SetActivity } from "@xhayper/discord-rpc";
 import { setActivity } from "./discord.native";
 import { settings } from "./Settings";
-import { fmtStr, getStatusText } from "./activityTextHelpers"
+import { fmtStr, getStatusText } from "./activityTextHelpers";
 
 export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	if (!PlayState.playing && !settings.displayOnPause) return await setActivity();
