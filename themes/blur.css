@@ -5,81 +5,155 @@
   "description": "Adds backdrop blur behind the player, title bar, and context menus."
 }
 */
-
 :root {
-	--blur-background: color-mix(in srgb, var(--wave-color-solid-base-brighter), transparent 60%);
-	--blur-radius: 16px;
+    --blur-background: color-mix(in srgb, var(--wave-color-solid-base-brighter), transparent 60%);
+    --blur-radius: 16px;
+    --player-height: 96px; /* Adjust this to match your player height */
 }
 
-#footerPlayer {
-	backdrop-filter: blur(var(--blur-radius));
-}
-
+/* Main layout adjustments */
 [class^="_containerRow_"] {
-	max-height: none !important;
+    max-height: none !important;
 }
 
 [class^="_mainContainer_"] {
-	height: 100vh !important;
-	background-color: inherit;
+    height: 100vh !important;
+    background-color: inherit;
 }
 
+/* Top bar */
 [class^="_bar_"] {
-	position: absolute;
-	z-index: 100;
-	backdrop-filter: blur(var(--blur-radius));
+    position: absolute;
+    z-index: 100;
+    backdrop-filter: blur(var(--blur-radius));
 }
 
+/* Padding adjustments */
 [class^="_sidebarWrapper"],
 [class^="_contentArea"],
 #main {
-	padding-top: 30px;
+    padding-top: 30px;
 }
 
+[class^="_contentArea"],
+#main {
+    padding-bottom: 0 !important;
+    margin-bottom: calc(var(--player-height) + 24px) !important;
+}
+
+/* Add spacing after content */
+[class^="_contentArea"]::after,
+#main::after {
+    content: "";
+    display: block;
+    height: calc(var(--player-height) + 24px);
+    width: 100%;
+}
+
+/* Remove double spacing */
+[class^="_contentArea"] > *:last-child,
+#main > *:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+table:last-child,
+[role="table"]:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* Context menus */
 [class^="_contextMenu"]::before,
 [class^="_subMenu_"]::before {
-	content: "";
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	top: 0;
-	left: 0;
-	backdrop-filter: blur(var(--blur-radius));
-	border-radius: 9px;
-	pointer-events: none;
-	z-index: -5;
-	background-color: var(--blur-background);
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    backdrop-filter: blur(var(--blur-radius));
+    border-radius: 9px;
+    pointer-events: none;
+    z-index: -5;
+    background-color: var(--blur-background);
 }
 
 [class^="_contextMenu_"],
 [class^="_subMenu_"] {
-	position: relative;
-	background-color: transparent;
+    position: relative;
+    background-color: transparent;
 }
 
-#footerPlayer,
-#sidebar,
-[class^="_bar_"],
-[class*="_audioQualityContainerHover_"]:hover,
-[class*="_selectItem_"]:hover,
-[class*="_createNewPlaylist_"]:hover {
-	background-color: var(--blur-background) !important;
+/* Main blur backgrounds */
+#footerPlayer {
+    backdrop-filter: blur(var(--blur-radius));
+    background-color: var(--blur-background) !important;
 }
 
 [class^="_sidebarWrapper_"] {
-	padding-bottom: 96px;
+    padding-bottom: 96px;
 }
 
 #feedSidebar,
 #playQueueSidebar,
 [class*="_playQueueWithoutHeader_"] button {
-	background-color: var(--blur-background);
-	backdrop-filter: blur(var(--blur-radius));
+    background-color: var(--blur-background);
+    backdrop-filter: blur(var(--blur-radius));
 }
 
-/* Blur background of homepage shortcut items */
+/* Hover states */
+[class*="_audioQualityContainerHover_"]:hover,
+[class*="_selectItem_"]:hover,
+[class*="_createNewPlaylist_"]:hover {
+    background-color: var(--blur-background) !important;
+}
+
+/* Shortcut playlist cards */
 @container (width > 200px) {
-	[class*="_shortcutItem_"]::after {
-		backdrop-filter: blur(8px);
-	}
+    [class*="_shortcutItem_"]::after {
+        backdrop-filter: blur(8px);
+    }
+}
+
+[class*="_shortcutItem_"] {
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius));
+}
+
+/* Selected/active sidebar items */
+[class^="_sidebarItem_"][class*="_active_"],
+[class*="_item_"][class*="_selected_"] {
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius));
+}
+
+/* Header backgrounds - remove images and add blur */
+[class^="_dataContainer_"]:before,
+[class*="_dataContainer_"]:before {
+    --img: none;
+    background-image: none !important;
+    backdrop-filter: blur(var(--blur-radius));
+    background-color: var(--blur-background) !important;
+}
+
+[class^="_smallHeader_"]:before,
+[class*="_smallHeader_"]:before {
+    --img: none;
+    background-image: none !important;
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius));
+    filter: none !important;
+}
+
+[class*="_backgroundGradient_"],
+[class*="_headerBackground_"],
+[class*="_gradient_"]:not([class*="_progressGradient_"]) {
+    backdrop-filter: blur(var(--blur-radius));
+    background-color: var(--blur-background) !important;
+}
+
+[class*="_header_"]:not([class*="_tableHeader_"])::before,
+[class*="_header_"]:not([class*="_tableHeader_"])::after {
+    background-image: none !important;
+    backdrop-filter: blur(var(--blur-radius));
 }
