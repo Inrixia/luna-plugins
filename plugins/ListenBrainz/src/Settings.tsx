@@ -42,7 +42,7 @@ export const Settings = () => {
 					</>
 				}
 				value={domain}
-        defaultValue="https://listenbrainz.org"
+        defaultValue="https://api.listenbrainz.org"
 				onChange={(e) => setDomain((storage.domain = e.target.value))}
 				error={!domain}
 			/>
