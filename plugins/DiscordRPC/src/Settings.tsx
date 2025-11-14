@@ -1,4 +1,4 @@
-import { LunaSelectItem, LunaSelectSetting, LunaSettings, LunaSwitchSetting } from "@luna/ui";
+import { LunaSelectItem, LunaSelectSetting, LunaSettings, LunaSwitchSetting, LunaTextSetting } from "@luna/ui";
 
 import { ReactiveStore } from "@luna/core";
 
@@ -11,6 +11,7 @@ export const settings = await ReactiveStore.getPluginStorage("DiscordRPC", {
 	displayArtistIcon: true,
 	displayPlaylistButton: true,
 	status: 1,
+	customStatusText: ""
 });
 
 export const Settings = () => {
@@ -18,6 +19,7 @@ export const Settings = () => {
 	const [displayArtistIcon, setDisplayArtistIcon] = React.useState(settings.displayArtistIcon);
 	const [displayPlaylistButton, setDisplayPlaylistButton] = React.useState(settings.displayPlaylistButton)
 	const [status, setStatus] = React.useState(settings.status);
+	const [customStatusText, setCustomStatusText] = React.useState(settings.customStatusText);
 
 	return (
 		<LunaSettings>
@@ -61,12 +63,45 @@ export const Settings = () => {
 				title="Status text"
 				desc="What text that you're 'Listening to' in your Discord status"
 				value={status}
-				onChange={(e) => setStatus((settings.status = parseInt(e.target.value)))}
+				onChange={(e) => {
+					const newStatus = parseInt(e.target.value);
+					setStatus((settings.status = newStatus));
+					updateActivity()
+						.then(() => (errSignal!._ = undefined))
+						.catch(trace.err.withContext("Failed to set activity"));
+				}}
 			>
 				<LunaSelectItem value="0" children="Listening to TIDAL" />
 				<LunaSelectItem value="1" children="Listening to [Artist Name]" />
 				<LunaSelectItem value="2" children="Listening to [Track Name]" />
+				<LunaSelectItem value="3" children="Custom" />
 			</LunaSelectSetting>
+
+			{status === 3 && (
+				<LunaTextSetting
+					title="Custom status text"
+					desc={
+						<>
+							Set your own message for Discord activity.
+							<br />
+							You can use the following tags:
+							<ul>
+								<li>{`{artist}`}</li>
+								<li>{`{track}`}</li>
+								<li>{`{album}`}</li>
+							</ul>
+							Example: <b>{"Listening to {track} by {artist}"}</b>
+						</>
+					}
+					value={customStatusText}
+					onChange={(e) => {
+						setCustomStatusText((settings.customStatusText = e.target.value));
+						updateActivity()
+							.then(() => (errSignal!._ = undefined))
+							.catch(trace.err.withContext("Failed to set activity"));
+					}}
+				/>
+			)}
 		</LunaSettings>
 	);
 };
