@@ -16,7 +16,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
-	const trackUrl = `https://tidal.com/browse/${mediaItem.tidalItem.contentType}/${mediaItem.id}?u`;
+	const trackUrl = `https://tidal.com/${mediaItem.tidalItem.contentType}/${mediaItem.id}/u`
 	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
@@ -34,7 +34,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	}
 
 	const artist = await mediaItem.artist();
-	const artistUrl = `https://tidal.com/browse/artist/${artist?.id}?u`;
+	const artistUrl = `https://tidal.com/artist/${artist?.id}/u`;
 
 	// Status text (if this is custom, we want to display our message)
 	activity.statusDisplayType = settings.status == 3 ? 2 : settings.status;
@@ -73,7 +73,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	if (album) {
 		activity.largeImageKey = album.coverUrl();
 		activity.largeImageText = await album.title().then(fmtStr);
-		activity.largeImageUrl = `https://tidal.com/browse/album/${album.id}?u`;
+		activity.largeImageUrl = `https://tidal.com/album/${album.id}/u`;
 	}
 
 	await setActivity(activity);
