@@ -11,7 +11,8 @@ export const settings = await ReactiveStore.getPluginStorage("DiscordRPC", {
 	displayArtistIcon: true,
 	displayPlaylistButton: true,
 	status: 1,
-	customStatusText: ""
+	customStatusText: "",
+	customStatusReplaceTrackName: false
 });
 
 export const Settings = () => {
@@ -20,6 +21,7 @@ export const Settings = () => {
 	const [displayPlaylistButton, setDisplayPlaylistButton] = React.useState(settings.displayPlaylistButton)
 	const [status, setStatus] = React.useState(settings.status);
 	const [customStatusText, setCustomStatusText] = React.useState(settings.customStatusText);
+	const [customStatusReplaceTrackName, setCustomStatusReplaceTrackName] = React.useState(settings.customStatusReplaceTrackName);
 
 	return (
 		<LunaSettings>
@@ -78,29 +80,47 @@ export const Settings = () => {
 			</LunaSelectSetting>
 
 			{status === 3 && (
-				<LunaTextSetting
-					title="Custom status text"
-					desc={
-						<>
-							Set your own message for Discord activity.
-							<br />
-							You can use the following tags:
-							<ul>
-								<li>{`{artist}`}</li>
-								<li>{`{track}`}</li>
-								<li>{`{album}`}</li>
-							</ul>
-							Example: <b>{"Listening to {track} by {artist}"}</b>
-						</>
-					}
-					value={customStatusText}
-					onChange={(e) => {
-						setCustomStatusText((settings.customStatusText = e.target.value));
-						updateActivity()
-							.then(() => (errSignal!._ = undefined))
-							.catch(trace.err.withContext("Failed to set activity"));
-					}}
-				/>
+				<div>
+					<LunaTextSetting
+						title="Custom status text"
+						desc={
+							<>
+								Set your own message for Discord activity.
+								<br />
+								You can use the following tags:
+								<ul>
+									<li>{`{artist}`}</li>
+									<li>{`{track}`}</li>
+									<li>{`{album}`}</li>
+								</ul>
+								Example: <b>{"Listening to {track} by {artist}"}</b>
+							</>
+						}
+						value={customStatusText}
+						onChange={(e) => {
+							setCustomStatusText((settings.customStatusText = e.target.value));
+							updateActivity()
+								.then(() => (errSignal!._ = undefined))
+								.catch(trace.err.withContext("Failed to set activity"));
+						}}
+					/>
+					<LunaSelectSetting
+						title="Custom status position"
+						desc="Choose what the custom status replaces in the rich presence area"
+						value={customStatusReplaceTrackName ? "1" : "0"}
+						onChange={(e) => {
+							const newValue = e.target.value === "1";
+							setCustomStatusReplaceTrackName(newValue);
+							settings.customStatusReplaceTrackName = newValue;
+							updateActivity()
+								.then(() => (errSignal!._ = undefined))
+								.catch(trace.err.withContext("Failed to set activity"));
+						}}
+					>
+						<LunaSelectItem value="0" children="TIDAL" />
+						<LunaSelectItem value="1" children="Track Name" />
+					</LunaSelectSetting>
+				</div>
 			)}
 		</LunaSettings>
 	);

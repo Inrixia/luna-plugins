@@ -16,7 +16,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
-	const trackUrl = `https://tidal.com/${mediaItem.tidalItem.contentType}/${mediaItem.id}/u`
+	const trackUrl = `https://tidal.com/browse/${mediaItem.tidalItem.contentType}/${mediaItem.id}?u`;
 	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
@@ -34,19 +34,38 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	}
 
 	const artist = await mediaItem.artist();
-	const artistUrl = `https://tidal.com/artist/${artist?.id}/u`;
+	const artistUrl = `https://tidal.com/browse/artist/${artist?.id}?u`;
 
-	// Status text (if this is custom, we want to display our message)
-	activity.statusDisplayType = settings.status == 3 ? 2 : settings.status;
+	// Status text
+	const statusText = fmtStr(await getStatusText(mediaItem));
+	activity.statusDisplayType = settings.status;
+	activity.name = "TIDAL";
 
 	// Title
-	activity.details = await getStatusText(mediaItem);
+	const trackTitle = fmtStr(await mediaItem.title());
+	activity.details = trackTitle;
 	activity.detailsUrl = trackUrl;
 
 	// Artists
 	const artistNames = await MediaItem.artistNames(await mediaItem.artists());
 	activity.state = fmtStr(artistNames.join(", ")) ?? "Unknown Artist";
 	activity.stateUrl = artistUrl;
+
+	if (settings.status == 3) {
+
+		// Due to Discord's constraints, we can't have a separate property for the title
+		// It has to either replace the application name or the song name
+		if (settings.customStatusReplaceTrackName) {
+			// Replace the song title with the custom status
+			activity.details = statusText;
+			activity.statusDisplayType = 2;
+		} else {
+			// Replace the application name with the custom status
+			activity.name = statusText;
+			activity.details = trackTitle;
+			activity.statusDisplayType = 0;
+		}
+	}
 
 	// Pause indicator
 	if (PlayState.playing) {
@@ -73,7 +92,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	if (album) {
 		activity.largeImageKey = album.coverUrl();
 		activity.largeImageText = await album.title().then(fmtStr);
-		activity.largeImageUrl = `https://tidal.com/album/${album.id}/u`;
+		activity.largeImageUrl = `https://tidal.com/browse/album/${album.id}?u`;
 	}
 
 	await setActivity(activity);

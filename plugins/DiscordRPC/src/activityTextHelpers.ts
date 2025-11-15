@@ -17,11 +17,11 @@ export const getStatusText = async (mediaItem: MediaItem) => {
 
     switch (settings.status) {
         case 0:
-            return "Listening to TIDAL";
+            return "TIDAL";
         case 1:
-            return `Listening to ${artist}`;
+            return fmtStr(artist);
         case 2:
-            return `Listening to ${track}`;
+            return fmtStr(track);
         case 3: {
             let custom = settings.customStatusText || "";
             custom = custom
