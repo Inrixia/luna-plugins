@@ -6,22 +6,36 @@ import React from "react";
 import { errSignal, trace } from ".";
 import { updateActivity } from "./updateActivity";
 
+export enum PresenceStatus {
+	Tidal = 0,
+	Artist = 1,
+	Track = 2,
+	Custom = 3
+}
+
+export enum CustomStatusPosition {
+	ReplaceAppName = 0,
+	ReplaceTrackName = 1
+}
+
 export const settings = await ReactiveStore.getPluginStorage("DiscordRPC", {
 	displayOnPause: true,
 	displayArtistIcon: true,
 	displayPlaylistButton: true,
-	status: 1,
+	status: PresenceStatus.Artist,
 	customStatusText: "",
-	customStatusReplaceTrackName: false
+	customStatusPosition: CustomStatusPosition.ReplaceAppName
 });
 
 export const Settings = () => {
 	const [displayOnPause, setDisplayOnPause] = React.useState(settings.displayOnPause);
 	const [displayArtistIcon, setDisplayArtistIcon] = React.useState(settings.displayArtistIcon);
 	const [displayPlaylistButton, setDisplayPlaylistButton] = React.useState(settings.displayPlaylistButton)
-	const [status, setStatus] = React.useState(settings.status);
+	const [status, setStatus] = React.useState(settings.status as PresenceStatus);
 	const [customStatusText, setCustomStatusText] = React.useState(settings.customStatusText);
-	const [customStatusReplaceTrackName, setCustomStatusReplaceTrackName] = React.useState(settings.customStatusReplaceTrackName);
+	const [customStatusPosition, setCustomStatusPosition] = React.useState(
+		Number(settings.customStatusPosition) as CustomStatusPosition
+	);
 
 	return (
 		<LunaSettings>
@@ -64,10 +78,11 @@ export const Settings = () => {
 			<LunaSelectSetting
 				title="Status text"
 				desc="What text that you're 'Listening to' in your Discord status"
-				value={status}
+				value={String(status)}
 				onChange={(e) => {
-					const newStatus = parseInt(e.target.value);
-					setStatus((settings.status = newStatus));
+					const newStatus = Number(e.target.value) as PresenceStatus;
+					setStatus(settings.status = newStatus);
+
 					updateActivity()
 						.then(() => (errSignal!._ = undefined))
 						.catch(trace.err.withContext("Failed to set activity"));
@@ -107,14 +122,11 @@ export const Settings = () => {
 					<LunaSelectSetting
 						title="Custom status position"
 						desc="Choose what the custom status replaces in the rich presence area"
-						value={customStatusReplaceTrackName ? "1" : "0"}
+						value={String(customStatusPosition)}
 						onChange={(e) => {
-							const newValue = e.target.value === "1";
-							setCustomStatusReplaceTrackName(newValue);
-							settings.customStatusReplaceTrackName = newValue;
-							updateActivity()
-								.then(() => (errSignal!._ = undefined))
-								.catch(trace.err.withContext("Failed to set activity"));
+							const pos = Number(e.target.value) as CustomStatusPosition;
+							setCustomStatusPosition(settings.customStatusPosition = pos);
+							updateActivity().catch(trace.err.withContext("Failed to set activity"));
 						}}
 					>
 						<LunaSelectItem value="0" children="TIDAL" />

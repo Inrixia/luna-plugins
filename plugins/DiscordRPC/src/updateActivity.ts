@@ -1,9 +1,9 @@
 import { asyncDebounce } from "@inrixia/helpers";
 import { MediaItem, PlayState, redux } from "@luna/lib";
 
-import type { SetActivity } from "@xhayper/discord-rpc";
+import { type StatusDisplayType, type SetActivity } from "@xhayper/discord-rpc";
 import { setActivity } from "./discord.native";
-import { settings } from "./Settings";
+import { CustomStatusPosition, PresenceStatus, settings } from "./Settings";
 import { fmtStr, getStatusText } from "./activityTextHelpers";
 
 export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
@@ -16,7 +16,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
-	const trackUrl = `https://tidal.com/browse/${mediaItem.tidalItem.contentType}/${mediaItem.id}?u`;
+	const trackUrl = `https://tidal.com/${mediaItem.tidalItem.contentType}/${mediaItem.id}/u`;
 	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
@@ -34,12 +34,17 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	}
 
 	const artist = await mediaItem.artist();
-	const artistUrl = `https://tidal.com/browse/artist/${artist?.id}?u`;
+	const artistUrl = `https://tidal.com/artist/${artist?.id}/u`;
 
 	// Status text
 	const statusText = fmtStr(await getStatusText(mediaItem));
-	activity.statusDisplayType = settings.status;
 	activity.name = "TIDAL";
+	if (settings.status === PresenceStatus.Custom) {
+		activity.statusDisplayType = 2;
+	} else {
+		// Convert from our custom enum
+		activity.statusDisplayType = settings.status as unknown as StatusDisplayType;
+	}
 
 	// Title
 	const trackTitle = fmtStr(await mediaItem.title());
@@ -55,7 +60,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 
 		// Due to Discord's constraints, we can't have a separate property for the title
 		// It has to either replace the application name or the song name
-		if (settings.customStatusReplaceTrackName) {
+		if (settings.customStatusPosition === CustomStatusPosition.ReplaceTrackName) {
 			// Replace the song title with the custom status
 			activity.details = statusText;
 			activity.statusDisplayType = 2;
@@ -92,7 +97,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	if (album) {
 		activity.largeImageKey = album.coverUrl();
 		activity.largeImageText = await album.title().then(fmtStr);
-		activity.largeImageUrl = `https://tidal.com/browse/album/${album.id}?u`;
+		activity.largeImageUrl = `https://tidal.com/album/${album.id}/u`;
 	}
 
 	await setActivity(activity);
