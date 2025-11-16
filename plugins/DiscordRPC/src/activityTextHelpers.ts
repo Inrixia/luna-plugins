@@ -1,5 +1,5 @@
 import { MediaItem } from "@luna/lib";
-import { settings } from "./Settings";
+import { PresenceStatus, settings } from "./Settings";
 
 const STR_MAX_LEN = 127;
 export const fmtStr = (s?: string) => {
@@ -16,13 +16,13 @@ export const getStatusText = async (mediaItem: MediaItem) => {
     const album = await (await mediaItem.album())?.title() ?? "";
 
     switch (settings.status) {
-        case 0:
-            return "Listening to TIDAL";
-        case 1:
-            return `Listening to ${artist}`;
-        case 2:
-            return `Listening to ${track}`;
-        case 3: {
+        case PresenceStatus.Tidal:
+            return "TIDAL";
+        case PresenceStatus.Artist:
+            return fmtStr(artist);
+        case PresenceStatus.Track:
+            return fmtStr(track);
+        case PresenceStatus.Custom: {
             let custom = settings.customStatusText || "";
             custom = custom
                 .replaceAll("{artist}", artist)

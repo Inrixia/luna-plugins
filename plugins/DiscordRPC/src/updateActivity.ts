@@ -1,9 +1,9 @@
 import { asyncDebounce } from "@inrixia/helpers";
 import { MediaItem, PlayState, redux } from "@luna/lib";
 
-import type { SetActivity } from "@xhayper/discord-rpc";
+import { StatusDisplayType, type SetActivity } from "@xhayper/discord-rpc";
 import { setActivity } from "./discord.native";
-import { settings } from "./Settings";
+import { CustomStatusPosition, PresenceStatus, settings } from "./Settings";
 import { fmtStr, getStatusText } from "./activityTextHelpers";
 
 export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
@@ -16,7 +16,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
-	const trackUrl = `https://tidal.com/${mediaItem.tidalItem.contentType}/${mediaItem.id}/u`
+	const trackUrl = `https://tidal.com/${mediaItem.tidalItem.contentType}/${mediaItem.id}/u`;
 	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
@@ -36,17 +36,41 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	const artist = await mediaItem.artist();
 	const artistUrl = `https://tidal.com/artist/${artist?.id}/u`;
 
-	// Status text (if this is custom, we want to display our message)
-	activity.statusDisplayType = settings.status == 3 ? 2 : settings.status;
+	// Status text
+	const statusText = fmtStr(await getStatusText(mediaItem));
+	activity.name = "TIDAL";
+	if (settings.status === PresenceStatus.Custom) {
+		activity.statusDisplayType = StatusDisplayType.DETAILS;
+	} else {
+		// Convert from our custom enum
+		activity.statusDisplayType = settings.status as unknown as StatusDisplayType;
+	}
 
 	// Title
-	activity.details = await getStatusText(mediaItem);
+	const trackTitle = fmtStr(await mediaItem.title());
+	activity.details = trackTitle;
 	activity.detailsUrl = trackUrl;
 
 	// Artists
 	const artistNames = await MediaItem.artistNames(await mediaItem.artists());
 	activity.state = fmtStr(artistNames.join(", ")) ?? "Unknown Artist";
 	activity.stateUrl = artistUrl;
+
+	if (settings.status === PresenceStatus.Custom) {
+
+		// Due to Discord's constraints, we can't have a separate property for the title
+		// It has to either replace the application name or the song name
+		if (settings.customStatusPosition === CustomStatusPosition.ReplaceTrackName) {
+			// Replace the song title with the custom status
+			activity.details = statusText;
+			activity.statusDisplayType = 2;
+		} else {
+			// Replace the application name with the custom status
+			activity.name = statusText;
+			activity.details = trackTitle;
+			activity.statusDisplayType = 0;
+		}
+	}
 
 	// Pause indicator
 	if (PlayState.playing) {
