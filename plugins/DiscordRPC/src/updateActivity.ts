@@ -1,7 +1,7 @@
 import { asyncDebounce } from "@inrixia/helpers";
 import { MediaItem, PlayState, redux } from "@luna/lib";
 
-import { type StatusDisplayType, type SetActivity } from "@xhayper/discord-rpc";
+import { StatusDisplayType, type SetActivity } from "@xhayper/discord-rpc";
 import { setActivity } from "./discord.native";
 import { CustomStatusPosition, PresenceStatus, settings } from "./Settings";
 import { fmtStr, getStatusText } from "./activityTextHelpers";
@@ -40,7 +40,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	const statusText = fmtStr(await getStatusText(mediaItem));
 	activity.name = "TIDAL";
 	if (settings.status === PresenceStatus.Custom) {
-		activity.statusDisplayType = 2;
+		activity.statusDisplayType = StatusDisplayType.DETAILS;
 	} else {
 		// Convert from our custom enum
 		activity.statusDisplayType = settings.status as unknown as StatusDisplayType;
@@ -56,7 +56,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	activity.state = fmtStr(artistNames.join(", ")) ?? "Unknown Artist";
 	activity.stateUrl = artistUrl;
 
-	if (settings.status == 3) {
+	if (settings.status === PresenceStatus.Custom) {
 
 		// Due to Discord's constraints, we can't have a separate property for the title
 		// It has to either replace the application name or the song name
