@@ -36,7 +36,8 @@ export const Settings = () => {
 				onChange={(e) => setDownloadQuality((settings.downloadQuality = e.target.value))}
 			>
 				{Object.values(Quality.lookups.audioQuality).map((quality) => {
-					if (typeof quality !== "string") return <LunaSelectItem key={quality.name} value={quality.audioQuality} children={quality.name} />;
+					if (typeof quality !== "string" && quality.audioQuality !== Quality.MQA.audioQuality)
+						return <LunaSelectItem key={quality.name} value={quality.audioQuality} children={quality.name} />;
 				})}
 			</LunaSelectSetting>
 			<LunaSwitchSetting

@@ -36,7 +36,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			await mediaItem.flacTags();
 
 			downloadButton.text = `Fetching filename...`;
-			const fileName = await getFileName(mediaItem);
+			const fileName = await getFileName(mediaItem, settings.downloadQuality);
 
 			downloadButton.text = `Fetching download path...`;
 			const path = downloadFolder !== undefined ? join(downloadFolder, fileName) : await getDownloadPath(fileName);

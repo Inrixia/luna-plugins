@@ -1,4 +1,4 @@
-import { MediaItem } from "@luna/lib";
+import { MediaItem, type redux } from "@luna/lib";
 import { showOpenDialog, showSaveDialog } from "@luna/lib.native";
 import { settings } from "./Settings";
 
@@ -15,8 +15,8 @@ export const getDownloadPath = async (defaultPath: string) => {
 	});
 	if (!canceled) return filePath;
 };
-export const getFileName = async (mediaItem: MediaItem) => {
-	let fileName = `${settings.pathFormat}.${await mediaItem.fileExtension()}`;
+export const getFileName = async (mediaItem: MediaItem, audioQuality?: redux.AudioQuality) => {
+	let fileName = `${settings.pathFormat}.${await mediaItem.fileExtension(audioQuality)}`;
 	const { tags } = await mediaItem.flacTags();
 	for (const tag of MediaItem.availableTags) {
 		let tagValue = tags[tag];
