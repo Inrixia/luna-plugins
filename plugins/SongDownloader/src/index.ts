@@ -33,7 +33,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			}
 
 			downloadButton.text = `Loading tags...`;
-			await mediaItem.flacTags();
+			const { tags } = await mediaItem.flacTags();
 
 			downloadButton.text = `Fetching filename...`;
 			const fileName = await getFileName(mediaItem, settings.downloadQuality);
@@ -58,7 +58,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 				},
 				50
 			);
-			await mediaItem.download(path, settings.downloadQuality);
+			await mediaItem.download(path, settings.downloadQuality).catch(trace.msg.err.withContext(`Failed to download ${tags.title}`));
 			clearInterval();
 		}
 		downloadButton.text = defaultText;
