@@ -1,4 +1,4 @@
-import { Client, type SetActivity } from "@xhayper/discord-rpc";
+import { Client, StatusDisplayType, type SetActivity } from "@xhayper/discord-rpc";
 
 let rpcClient: Client | null = null;
 export const getClient = async () => {
@@ -20,3 +20,8 @@ export const setActivity = async (activity?: SetActivity) => {
 };
 
 export const cleanupRPC = () => rpcClient?.destroy()!;
+export const StatusDisplayTypeEnum = () => ({
+	Details: StatusDisplayType.DETAILS,
+	Name: StatusDisplayType.NAME,
+	State: StatusDisplayType.STATE,
+});

@@ -1,10 +1,13 @@
 import { asyncDebounce } from "@inrixia/helpers";
 import { MediaItem, PlayState, redux } from "@luna/lib";
 
-import { StatusDisplayType, type SetActivity } from "@xhayper/discord-rpc";
-import { setActivity } from "./discord.native";
-import { CustomStatusPosition, PresenceStatus, settings } from "./Settings";
+import type { SetActivity } from "@xhayper/discord-rpc";
 import { fmtStr, getStatusText } from "./activityTextHelpers";
+import { setActivity, StatusDisplayTypeEnum } from "./discord.native";
+import { CustomStatusPosition, PresenceStatus, settings } from "./Settings";
+
+// Proxy this so we dont try import a node native module
+const StatusDisplayType = await StatusDisplayTypeEnum();
 
 export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	if (!PlayState.playing && !settings.displayOnPause) return await setActivity();
@@ -23,7 +26,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 		{
 			url: trackUrl,
 			label: "Play Song",
-		}
+		},
 	];
 
 	if (sourceEntityType === "playlist" && settings.displayPlaylistButton) {
@@ -40,10 +43,10 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	const statusText = fmtStr(await getStatusText(mediaItem));
 	activity.name = "TIDAL";
 	if (settings.status === PresenceStatus.Custom) {
-		activity.statusDisplayType = StatusDisplayType.DETAILS;
+		activity.statusDisplayType = StatusDisplayType.Details;
 	} else {
 		// Convert from our custom enum
-		activity.statusDisplayType = settings.status as unknown as StatusDisplayType;
+		activity.statusDisplayType = settings.status;
 	}
 
 	// Title
@@ -57,7 +60,6 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	activity.stateUrl = artistUrl;
 
 	if (settings.status === PresenceStatus.Custom) {
-
 		// Due to Discord's constraints, we can't have a separate property for the title
 		// It has to either replace the application name or the song name
 		if (settings.customStatusPosition === CustomStatusPosition.ReplaceTrackName) {
