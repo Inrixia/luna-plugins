@@ -1,5 +1,5 @@
 import { ReactiveStore } from "@luna/core";
-import { LunaLink, LunaSecureTextSetting, LunaTextSetting, LunaSettings } from "@luna/ui";
+import { LunaLink, LunaSecureTextSetting, LunaSettings, LunaTextSetting } from "@luna/ui";
 
 import React from "react";
 
@@ -7,8 +7,10 @@ import { errSignal } from ".";
 
 export const storage = await ReactiveStore.getPluginStorage<{
 	userToken?: string;
-  domain?: string;
-}>("ListenBrainz");
+	domain?: string;
+}>("ListenBrainz", {
+	domain: "https://api.listenbrainz.org",
+});
 
 export const Settings = () => {
 	const [token, setToken] = React.useState(storage.userToken);
@@ -34,16 +36,15 @@ export const Settings = () => {
 				onChange={(e) => setToken((storage.userToken = e.target.value))}
 				error={!token}
 			/>
-      <LunaTextSetting
+			<LunaTextSetting
 				title="ListenBrainz Domain"
-				desc={
-					<>
-            Your instance of listenbrainz
-					</>
-				}
+				desc={<>Your instance of listenbrainz</>}
 				value={domain}
-        defaultValue="https://api.listenbrainz.org"
-				onChange={(e) => setDomain((storage.domain = e.target.value))}
+				defaultValue="https://api.listenbrainz.org"
+				onChange={(e) => {
+					if (e.target.value === "" || !e.target.value) setDomain("https://api.listenbrainz.org");
+					else setDomain((storage.domain = e.target.value));
+				}}
 				error={!domain}
 			/>
 		</LunaSettings>
