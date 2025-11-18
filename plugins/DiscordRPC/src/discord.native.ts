@@ -21,7 +21,7 @@ export const setActivity = async (activity?: SetActivity) => {
 
 export const cleanupRPC = () => rpcClient?.destroy()!;
 export const StatusDisplayTypeEnum = () => ({
-	Details: StatusDisplayType.DETAILS,
 	Name: StatusDisplayType.NAME,
 	State: StatusDisplayType.STATE,
+	Details: StatusDisplayType.DETAILS,
 });

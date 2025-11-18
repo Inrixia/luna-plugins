@@ -4,7 +4,7 @@ import { MediaItem, PlayState, redux } from "@luna/lib";
 import type { SetActivity } from "@xhayper/discord-rpc";
 import { fmtStr, getStatusText } from "./activityTextHelpers";
 import { setActivity, StatusDisplayTypeEnum } from "./discord.native";
-import { CustomStatusPosition, PresenceStatus, settings } from "./Settings";
+import { settings } from "./Settings";
 
 // Proxy this so we dont try import a node native module
 const StatusDisplayType = await StatusDisplayTypeEnum();
@@ -41,13 +41,7 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 
 	// Status text
 	const statusText = fmtStr(await getStatusText(mediaItem));
-	activity.name = "TIDAL";
-	if (settings.status === PresenceStatus.Custom) {
-		activity.statusDisplayType = StatusDisplayType.Details;
-	} else {
-		// Convert from our custom enum
-		activity.statusDisplayType = settings.status;
-	}
+	activity.name = statusText;
 
 	// Title
 	const trackTitle = fmtStr(await mediaItem.title());
@@ -59,20 +53,8 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	activity.state = fmtStr(artistNames.join(", ")) ?? "Unknown Artist";
 	activity.stateUrl = artistUrl;
 
-	if (settings.status === PresenceStatus.Custom) {
-		// Due to Discord's constraints, we can't have a separate property for the title
-		// It has to either replace the application name or the song name
-		if (settings.customStatusPosition === CustomStatusPosition.ReplaceTrackName) {
-			// Replace the song title with the custom status
-			activity.details = statusText;
-			activity.statusDisplayType = 2;
-		} else {
-			// Replace the application name with the custom status
-			activity.name = statusText;
-			activity.details = trackTitle;
-			activity.statusDisplayType = 0;
-		}
-	}
+	activity.details = trackTitle;
+	activity.statusDisplayType = StatusDisplayType.Name;
 
 	// Pause indicator
 	if (PlayState.playing) {
