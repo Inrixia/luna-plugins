@@ -54,7 +54,7 @@ export const setFormatInfo = async (mediaItem?: MediaItem) => {
 	});
 
 	try {
-		await mediaItem.updateFormat();
+		await mediaItem.updateFormat(audioQuality);
 	} catch (err) {
 		formatInfoElem.style.border = "solid 1px red";
 		const errorText = (<Error>err).message.substring(0, 64);
