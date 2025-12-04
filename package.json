@@ -21,15 +21,15 @@
 	"devDependencies": {
 		"@inrixia/helpers": "^3.20.3",
 		"@types/node": "^24.10.1",
-		"@types/react": "^19.2.6",
+		"@types/react": "^19.2.7",
 		"@types/react-dom": "^19.2.3",
 		"concurrently": "^9.2.1",
-		"electron": "^39.2.1",
+		"electron": "^39.2.5",
 		"http-server": "^14.1.1",
 		"luna": "github:inrixia/TidaLuna#072f06d",
 		"oby": "^15.1.2",
-		"rimraf": "^6.1.0",
-		"tsx": "^4.20.6",
+		"rimraf": "^6.1.2",
+		"tsx": "^4.21.0",
 		"typescript": "^5.9.3"
 	}
 }
