@@ -6,12 +6,16 @@ import React from "react";
 import { errSignal, trace } from ".";
 import { updateActivity } from "./updateActivity";
 
+const defaultCustomStatusText = "{track} by {artist}";
+
 export const settings = await ReactiveStore.getPluginStorage("DiscordRPC", {
 	displayOnPause: true,
 	displayArtistIcon: true,
 	displayPlaylistButton: true,
-	customStatusText: "Listening to {track} by {artist}",
+	customStatusText: defaultCustomStatusText,
 });
+
+if (!settings.customStatusText || settings.customStatusText === "") settings.customStatusText = defaultCustomStatusText;
 
 export const Settings = () => {
 	const [displayOnPause, setDisplayOnPause] = React.useState(settings.displayOnPause);
@@ -69,12 +73,12 @@ export const Settings = () => {
 							<li>{`{artist}`}</li>
 							<li>{`{album}`}</li>
 						</ul>
-						Default: <b>{"Listening to {track} by {artist}"}</b>
+						Default: <b>{"{track} by {artist}"}</b>
 					</>
 				}
 				value={customStatusText}
 				onChange={(e) => {
-					if (e.target.value === "" || !e.target.value) setCustomStatusText((settings.customStatusText = "Listening to {track} by {artist}"));
+					if (e.target.value === "" || !e.target.value) setCustomStatusText((settings.customStatusText = defaultCustomStatusText));
 					else setCustomStatusText((settings.customStatusText = e.target.value));
 					updateActivity()
 						.then(() => (errSignal!._ = undefined))
