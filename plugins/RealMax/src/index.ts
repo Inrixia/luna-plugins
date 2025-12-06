@@ -35,12 +35,12 @@ export { Settings } from "./Settings";
 // Prefetch max on preload
 MediaItem.onPreload(unloads, (mediaItem) => mediaItem.max().catch(trace.err.withContext("onPreload.max")));
 
-let isStartup = true;
 MediaItem.onPreMediaTransition(unloads, async (mediaItem) => {
-	if (isStartup) return (isStartup = false);
+	const maxItem = await getMaxItem(mediaItem);
+	if (!PlayState.playing) return;
+
 	PlayState.pause();
 	try {
-		const maxItem = await getMaxItem(mediaItem);
 		if (maxItem !== undefined) PlayState.playNext(maxItem.id);
 	} catch (err) {
 		trace.msg.err.withContext("addNext")(err);
