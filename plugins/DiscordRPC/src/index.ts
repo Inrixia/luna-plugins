@@ -8,12 +8,16 @@ export const unloads = new Set<LunaUnload>();
 export const { trace, errSignal } = Tracer("[DiscordRPC]");
 export { Settings } from "./Settings";
 
-redux.intercept(["playbackControls/TIME_UPDATE", "playbackControls/SEEK", "playbackControls/SET_PLAYBACK_STATE"], unloads, () => {
+redux.intercept(["playbackControls/SEEK", "playbackControls/SET_PLAYBACK_STATE"], unloads, () => {
 	updateActivity()
 		.then(() => (errSignal!._ = undefined))
 		.catch(trace.err.withContext("Failed to set activity"));
 });
-unloads.add(MediaItem.onMediaTransition(unloads, updateActivity));
+MediaItem.onMediaTransition(unloads, (mediaItem) => {
+	updateActivity(mediaItem)
+		.then(() => (errSignal!._ = undefined))
+		.catch(trace.err.withContext("Failed to set activity"));
+});
 unloads.add(cleanupRPC.bind(cleanupRPC));
 
 setTimeout(updateActivity);

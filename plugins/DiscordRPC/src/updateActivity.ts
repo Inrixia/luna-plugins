@@ -1,4 +1,3 @@
-import { asyncDebounce } from "@inrixia/helpers";
 import { MediaItem, PlayState, redux } from "@luna/lib";
 
 import type { SetActivity } from "@xhayper/discord-rpc";
@@ -9,7 +8,7 @@ import { settings } from "./Settings";
 // Proxy this so we dont try import a node native module
 const StatusDisplayType = await StatusDisplayTypeEnum();
 
-export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
+export const updateActivity = async (mediaItem?: MediaItem) => {
 	if (!PlayState.playing && !settings.displayOnPause) return await setActivity();
 
 	mediaItem ??= await MediaItem.fromPlaybackContext();
@@ -85,4 +84,4 @@ export const updateActivity = asyncDebounce(async (mediaItem?: MediaItem) => {
 	}
 
 	await setActivity(activity);
-}, true);
+};
