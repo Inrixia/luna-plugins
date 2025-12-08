@@ -13,13 +13,11 @@ redux.intercept(["playbackControls/SEEK", "playbackControls/SET_PLAYBACK_STATE"]
 		.then(() => (errSignal!._ = undefined))
 		.catch(trace.err.withContext("Failed to set activity"));
 });
-unloads.add(
-	MediaItem.onMediaTransition(unloads, (mediaItem) => {
-		updateActivity(mediaItem)
-			.then(() => (errSignal!._ = undefined))
-			.catch(trace.err.withContext("Failed to set activity"));
-	})
-);
+MediaItem.onMediaTransition(unloads, (mediaItem) => {
+	updateActivity(mediaItem)
+		.then(() => (errSignal!._ = undefined))
+		.catch(trace.err.withContext("Failed to set activity"));
+});
 unloads.add(cleanupRPC.bind(cleanupRPC));
 
 setTimeout(updateActivity);
