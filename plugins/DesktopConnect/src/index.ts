@@ -20,7 +20,7 @@ ipcRenderer.on(unloads, "remote.desktop.play", PlayState.play.bind(PlayState));
 ipcRenderer.on(unloads, "remote.desktop.pause", PlayState.pause.bind(PlayState));
 ipcRenderer.on(unloads, "remote.desktop.set.shuffle", PlayState.setShuffle.bind(PlayState));
 ipcRenderer.on(unloads, "remote.desktop.set.repeat.mode", PlayState.setRepeatMode.bind(PlayState));
-ipcRenderer.on(unloads, "remote.destop.set.volume.mute", ({ level, mute }: { level: number; mute: boolean }) => {
+ipcRenderer.on(unloads, "remote.desktop.set.volume.mute", ({ level, mute }: { level: number; mute: boolean }) => {
 	redux.actions["playbackControls/SET_MUTE"](mute);
 	redux.actions["playbackControls/SET_VOLUME"]({
 		volume: Math.min(level * 100, 100),
