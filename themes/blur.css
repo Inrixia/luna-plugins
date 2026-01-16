@@ -1,45 +1,83 @@
 /*
 {
   "name": "Blur",
-  "author": "Nick Oates",
+  "authors": "Nick Oates", "Judzim"
   "description": "Adds backdrop blur behind the player, title bar, and context menus."
+  "notes": "Use with CoverTheme addon!"
 }
 */
 :root {
-    --blur-background: color-mix(in srgb, var(--wave-color-solid-base-brighter), transparent 60%);
-    --blur-radius: 16px;
+    --blur-background: color-mix(in srgb, var(--wave-color-solid-base-brighter), transparent 75%);
+    --blur-radius: 12px;
     --player-height: 96px; /* Adjust this to match your player height */
 }
+
 
 /* Main layout adjustments */
 [class^="_containerRow_"] {
     max-height: none !important;
 }
 
+
 [class^="_mainContainer_"] {
     height: 100vh !important;
     background-color: inherit;
 }
 
-/* Top bar */
-[class^="_bar_"] {
-    position: absolute;
-    z-index: 100;
-    backdrop-filter: blur(var(--blur-radius));
+
+/* Top bar - FORCE TRANSPARENT (override themer addon) */
+[class^="_bar_"],
+[class*="_bar_"],
+div[class^="_bar_"],
+div[class*="_bar_"] {
+    position: absolute !important;
+    z-index: 2000 !important;
+    background-color: rgba(0, 0, 0, 0) !important;
+    background: transparent !important;
+    background-image: none !important;
+    color: white !important;
 }
 
+/* Additional forced transparency */
+[class^="_bar_"]::before,
+[class^="_bar_"]::after,
+[class*="_bar_"]::before,
+[class*="_bar_"]::after {
+    background-color: transparent !important;
+    background: transparent !important;
+    background-image: none !important;
+}
+
+/* Just to be sure one more force */
+[class^="_bar_"][style*="background"] {
+    background-color: rgba(0, 0, 0, 0) !important;
+    background: transparent !important;
+}
+
+/* All playlists segment */
+[class^="_sectionHeader_"] {
+    position: sticky !important;
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius)) !important;
+    border-radius: 9px !important;
+    padding-top: 7px !important;
+}
+
+
 /* Padding adjustments */
-[class^="_sidebarWrapper"],
-[class^="_contentArea"],
-#main {
+[class^="_sidebarWrapper"]::before,
+[class^="_sidebar_"]{
     padding-top: 30px;
 }
 
+
 [class^="_contentArea"],
 #main {
+    padding-top: 30px;
     padding-bottom: 0 !important;
     margin-bottom: calc(var(--player-height) + 24px) !important;
 }
+
 
 /* Add spacing after content */
 [class^="_contentArea"]::after,
@@ -50,17 +88,18 @@
     width: 100%;
 }
 
-/* Remove double spacing */
-[class^="_contentArea"] > *:last-child,
-#main > *:last-child {
-    margin-bottom: 0 !important;
-    padding-bottom: 0 !important;
+
+[class^="MuiTabs-scroller"],
+.mainContent {
+    padding-top: 75px;
 }
+
 
 table:last-child,
 [role="table"]:last-child {
     margin-bottom: 0 !important;
 }
+
 
 /* Context menus */
 [class^="_contextMenu"]::before,
@@ -84,48 +123,140 @@ table:last-child,
     background-color: transparent;
 }
 
+
+/* Following, fans and create playlist blur */
+[class*="_dialog_"] {
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[class*="_button_94c5125"][class*="_secondary_"] {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid #25282b !important;
+}
+
+#description {
+    background-color: rgba(0,0,0,0) !important;
+}
+
+
+/* Collection pop-up blur */
+[class^="_submenu_"] {
+    backdrop-filter: blur(var(--blur-radius)) !important;
+    background-color: var(--blur-background) !important;
+}
+
+
+/* Better readability of text in sidebar */
+[class*="_navigationItem_"],
+[class*="_submenuItem_"],
+[class*="_marketText_"] {
+    color: #ffffffee !important;
+}
+
+/* Search bar */
+[class*="_header_"] [class*="_searchField_"] {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 24px !important;
+}
+
+/* Search results container */
+[class*="_container_79ca"] {
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius)) !important;
+}
+
+
+/* Volume slider*/
+[class*="_nativeRangeContainer_"] {
+    position: relative !important;
+    background-color: var(--blur-background) !important;
+}
+
+/* Search results header fix*/
+[class*="_searchPills"]{
+    position: fixed !important;
+    top: 110px !important;
+    z-index: 1999 !important;
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius)) !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+    border-radius: 12px !important;
+}
+
+/* Remove the color */
+[class*="_container_"][class*="_solidHeader_"]::before {
+    display: none !important;
+}
+
+/* Volume slider fix */
+.nativeRange {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
 /* Main blur backgrounds */
-#footerPlayer {
+#footerPlayer,
+#feedSidebar,
+#playQueueSidebar,
+[class*="_playQueueWithoutHeader_"] button {
     backdrop-filter: blur(var(--blur-radius));
     background-color: var(--blur-background) !important;
 }
 
+
 [class^="_sidebarWrapper_"] {
-    padding-bottom: 96px;
+    padding-bottom: var(--player-height);
 }
 
-#feedSidebar,
-#playQueueSidebar,
-[class*="_playQueueWithoutHeader_"] button {
-    background-color: var(--blur-background);
-    backdrop-filter: blur(var(--blur-radius));
+
+/* MAINHEADER */
+
+#mainHeader {
+    background-color: transparent !important;
+    background-image: none !important;
 }
+
+#mainHeader::before {
+    content: "";
+    position: absolute;
+    top: -30px !important; 
+    height: calc(100% + 30px) !important;
+    width: 100%;
+    left: 0;
+    background-color: var(--blur-background) !important;
+    backdrop-filter: blur(var(--blur-radius));
+    z-index: -1;
+    transition: opacity 0.3s ease;
+}
+
+
+[class*="_solidHeader_"] {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
 
 /* Hover states */
 [class*="_audioQualityContainerHover_"]:hover,
 [class*="_selectItem_"]:hover,
-[class*="_createNewPlaylist_"]:hover {
+[class*="_createNewPlaylist_"]:hover,
+[class*="_navigationItem_"]:hover, 
+[class*="_playlistNavigationItem_"]:hover,
+[class*="_contentItem_"]:hover {
     background-color: var(--blur-background) !important;
 }
 
-/* Shortcut playlist cards */
-@container (width > 200px) {
-    [class*="_shortcutItem_"]::after {
-        backdrop-filter: blur(8px);
-    }
-}
 
+/* 6 Shortcut playlist cards */
 [class*="_shortcutItem_"] {
     background-color: var(--blur-background) !important;
-    backdrop-filter: blur(var(--blur-radius));
 }
 
-/* Selected/active sidebar items */
-[class^="_sidebarItem_"][class*="_active_"],
-[class*="_item_"][class*="_selected_"] {
-    background-color: var(--blur-background) !important;
-    backdrop-filter: blur(var(--blur-radius));
-}
 
 /* Header backgrounds - remove images and add blur */
 [class^="_dataContainer_"]:before,
@@ -136,14 +267,16 @@ table:last-child,
     background-color: var(--blur-background) !important;
 }
 
+
 [class^="_smallHeader_"]:before,
 [class*="_smallHeader_"]:before {
     --img: none;
     background-image: none !important;
     background-color: var(--blur-background) !important;
-    backdrop-filter: blur(var(--blur-radius));
+    backdrop-filter: blur(var(--blur-radius)) !important;
     filter: none !important;
 }
+
 
 [class*="_backgroundGradient_"],
 [class*="_headerBackground_"],
@@ -152,8 +285,44 @@ table:last-child,
     background-color: var(--blur-background) !important;
 }
 
+
 [class*="_header_"]:not([class*="_tableHeader_"])::before,
 [class*="_header_"]:not([class*="_tableHeader_"])::after {
     background-image: none !important;
     backdrop-filter: blur(var(--blur-radius));
+}
+
+
+#main {
+    height: 100vh !important;
+    margin-top: 0 !important;
+}
+
+
+/* EXPAND SMALL HEADER UPWARD ONLY ON SCROLLING */
+
+/* Hide mainHeader when scrolling */
+body:has([class*="_showHeader_"]) #mainHeader::before {
+  opacity: 0 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+/* Expand small header UPWARD only */
+[class*="_smallHeader_"] {
+  transition: transform 0.2s ease, padding 0.2s ease !important;
+}
+
+body:has([class*="_showHeader_"]) [class*="_smallHeader_"] {
+  padding-top: 120px !important;
+  margin-top: -20px !important;
+}
+
+/* Extend the background upward - keep natural width */
+[class*="_smallHeader_"]::before {
+  transition: all 0.2s ease !important;
+}
+
+body:has([class*="_showHeader_"]) [class*="_smallHeader_"]::before {
+  top: -20px !important;
+  height: 250px !important;
 }

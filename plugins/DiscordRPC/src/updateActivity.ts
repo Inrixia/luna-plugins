@@ -18,7 +18,7 @@ export const updateActivity = async (mediaItem?: MediaItem) => {
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
-	const trackUrl = `https://tidal.com/${mediaItem.tidalItem.contentType}/${mediaItem.id}/u`;
+	const trackUrl = `https://tidal.com/${mediaItem.tidalItem.contentType}/${mediaItem.id}/u`
 	const trackSourceUrl = `https://tidal.com/browse${sourceUrl}`;
 
 	activity.buttons = [
