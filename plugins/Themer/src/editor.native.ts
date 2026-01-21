@@ -10,7 +10,7 @@ export const openEditor = async (css: string) => {
 
 	const preloadPath = path.join(app.getPath("temp"), `${Math.random().toString()}.preload.js`);
 	try {
-		await writeFile(preloadPath, preloadCode + `window.themerCSS = ${JSON.stringify(css)}`, "utf-8");
+		await writeFile(preloadPath, preloadCode, "utf-8");
 
 		win = new BrowserWindow({
 			title: "TIDAL CSS Editor",
@@ -30,6 +30,7 @@ export const openEditor = async (css: string) => {
 		});
 
 		await win.loadURL(`data:text/html;base64,${editor}`);
+		await win.webContents.executeJavaScript(`window.editor.setValue(${JSON.stringify(css)})`);
 	} finally {
 		await rm(preloadPath, { force: true });
 	}

@@ -40,7 +40,7 @@
 		});
 
 		require(["vs/editor/editor.main"], () => {
-			const editor = monaco.editor.create(
+			const editor = window.editor = monaco.editor.create(
 				document.getElementById("container"),
 				{
 					value: window.themerCSS,
