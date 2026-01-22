@@ -1,8 +1,6 @@
 import { Tracer, type LunaUnload } from "@luna/core";
 import { ContextMenu, safeInterval, StyleTag } from "@luna/lib";
 
-import { join } from "path";
-
 import { getDownloadFolder, getDownloadPath, getFileName } from "./helpers";
 import { settings } from "./Settings";
 
@@ -39,7 +37,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			const fileName = await getFileName(mediaItem, settings.downloadQuality);
 
 			downloadButton.text = `Fetching download path...`;
-			const path = downloadFolder !== undefined ? join(downloadFolder, fileName) : await getDownloadPath(fileName);
+			const path = downloadFolder !== undefined ? [downloadFolder, fileName] : await getDownloadPath(fileName);
 			if (path === undefined) return;
 
 			downloadButton.text = `Downloading...`;
@@ -56,7 +54,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 					const totalMB = (total / 1048576).toFixed(0);
 					downloadButton.text = `Downloading... ${downloadedMB}/${totalMB}MB ${percent.toFixed(0)}%`;
 				},
-				50
+				50,
 			);
 			await mediaItem.download(path, settings.downloadQuality).catch(trace.msg.err.withContext(`Failed to download ${tags.title}`));
 			clearInterval();
