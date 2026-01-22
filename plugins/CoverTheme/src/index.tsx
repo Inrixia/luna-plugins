@@ -11,7 +11,7 @@ import { getPalette, type Palette, type RGBSwatch } from "./vibrant.native";
 
 const cachePalette = async (mediaItem?: MediaItem): Promise<Palette | undefined> => {
 	if (mediaItem === undefined) return;
-	const coverUrl = await mediaItem.coverUrl("640");
+	const coverUrl = await mediaItem.coverUrl({ res: "640" });
 	if (coverUrl === undefined) return;
 	return await storage.ensure<Palette>(`palette_v2.${coverUrl}`, () => getPalette(coverUrl));
 };
