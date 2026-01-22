@@ -9,7 +9,8 @@
 
 body,
 #nowPlaying {
-	background-image: radial-gradient(ellipse at top left, rgb(var(--cover-DarkVibrant), var(--cover-opacity)), transparent 70%),
+	background-image:
+		radial-gradient(ellipse at top left, rgb(var(--cover-DarkVibrant), var(--cover-opacity)), transparent 70%),
 		radial-gradient(ellipse at center left, rgb(var(--cover-Vibrant), var(--cover-opacity)), transparent 70%),
 		radial-gradient(ellipse at bottom left, rgb(var(--cover-LightMuted), var(--cover-opacity)), transparent 70%),
 		radial-gradient(ellipse at top right, rgb(var(--cover-LightVibrant), var(--cover-opacity)), transparent 70%),
@@ -21,6 +22,8 @@ body,
 main,
 [class^="_sidebarWrapper"],
 [class^="_mainContainer"],
+[class^="_sectionHeader"],
+[class^="_header"],
 [class*="smallHeader"] {
 	background: unset !important;
 }
