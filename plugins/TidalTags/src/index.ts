@@ -11,7 +11,7 @@ export { Settings, unloads };
 
 new StyleTag("TidalTags", unloads, styles);
 
-observe(unloads, 'div[data-test="tracklist-row"]', async (trackRow) => {
+const updateTrackRow = async (trackRow: Element) => {
 	if (!settings.displayQalityTags && !settings.displayFormatColumns) return;
 	const trackId = trackRow.getAttribute("data-track-id");
 	if (trackId == null) return;
@@ -21,7 +21,25 @@ observe(unloads, 'div[data-test="tracklist-row"]', async (trackRow) => {
 
 	if (settings.displayQalityTags) setQualityTags(trackRow, mediaItem);
 	if (settings.displayFormatColumns) await setFormatColumns(trackRow, mediaItem);
+};
+
+// Observe new tracklist rows
+observe(unloads, 'div[data-test="tracklist-row"]', updateTrackRow);
+
+// Observe data-track-id attribute changes (DOM recycling)
+const attrObserver = new MutationObserver((mutations) => {
+	for (const mutation of mutations) {
+		if (mutation.type === "attributes" && mutation.attributeName === "data-track-id") {
+			updateTrackRow(mutation.target as Element);
+		}
+	}
 });
+attrObserver.observe(document.body, {
+	subtree: true,
+	attributes: true,
+	attributeFilter: ["data-track-id"],
+});
+unloads.add(() => attrObserver.disconnect());
 
 MediaItem.onMediaTransition(unloads, setFormatInfo);
 MediaItem.fromPlaybackContext().then(setFormatInfo);
