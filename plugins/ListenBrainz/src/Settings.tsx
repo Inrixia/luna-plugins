@@ -27,7 +27,7 @@ export const Settings = () => {
 				desc={
 					<>
 						User token from{" "}
-						<LunaLink fontWeight="bold" href={`${domain}/settings`}>
+						<LunaLink fontWeight="bold" href={`${domain?.replace("api.", "")}/settings`}>
 							listenbrainz.org/settings
 						</LunaLink>
 					</>
