@@ -9,14 +9,10 @@ export const { trace, errSignal } = Tracer("[DiscordRPC]");
 export { Settings } from "./Settings";
 
 redux.intercept(["playbackControls/SEEK", "playbackControls/SET_PLAYBACK_STATE"], unloads, () => {
-	updateActivity()
-		.then(() => (errSignal!._ = undefined))
-		.catch(trace.err.withContext("Failed to set activity"));
+	updateActivity();
 });
 MediaItem.onMediaTransition(unloads, (mediaItem) => {
-	updateActivity(mediaItem)
-		.then(() => (errSignal!._ = undefined))
-		.catch(trace.err.withContext("Failed to set activity"));
+	updateActivity(mediaItem);
 });
 unloads.add(cleanupRPC.bind(cleanupRPC));
 

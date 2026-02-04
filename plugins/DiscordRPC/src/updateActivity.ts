@@ -4,11 +4,63 @@ import type { SetActivity } from "@xhayper/discord-rpc";
 import { fmtStr, getStatusText } from "./activityTextHelpers";
 import { setActivity, StatusDisplayTypeEnum } from "./discord.native";
 import { settings } from "./Settings";
+import { trace, errSignal } from "./index";
 
 // Proxy this so we dont try import a node native module
 const StatusDisplayType = await StatusDisplayTypeEnum();
 
-export const updateActivity = async (mediaItem?: MediaItem) => {
+// Debounce state
+const DEBOUNCE_MS = 300;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let isUpdating = false;
+let pendingUpdate: MediaItem | undefined | null = null; // null = no pending, undefined = pending with no mediaItem
+
+/**
+ * Debounced wrapper for _updateActivity
+ * - Waits DEBOUNCE_MS after last call before executing
+ * - If already updating, queues the next update
+ */
+export const updateActivity = (mediaItem?: MediaItem) => {
+	// If currently updating, mark that we need another update after
+	if (isUpdating) {
+		pendingUpdate = mediaItem;
+		return;
+	}
+
+	// Clear existing timer
+	if (debounceTimer) clearTimeout(debounceTimer);
+
+	// Set new debounce timer
+	debounceTimer = setTimeout(async () => {
+		debounceTimer = null;
+		await executeUpdate(mediaItem);
+	}, DEBOUNCE_MS);
+};
+
+/**
+ * Execute the actual update with mutex protection
+ */
+const executeUpdate = async (mediaItem?: MediaItem) => {
+	isUpdating = true;
+	try {
+		await _updateActivity(mediaItem);
+		errSignal!._ = undefined;
+	} catch (e) {
+		trace.err.withContext("Failed to set activity")(e);
+	} finally {
+		isUpdating = false;
+		if (pendingUpdate !== null) {
+			const pending = pendingUpdate;
+			pendingUpdate = null;
+			updateActivity(pending);
+		}
+	}
+};
+
+/**
+ * Internal update implementation (no debounce/mutex)
+ */
+const _updateActivity = async (mediaItem?: MediaItem) => {
 	if (!PlayState.playing && !settings.displayOnPause) return await setActivity();
 
 	mediaItem ??= await MediaItem.fromPlaybackContext();
