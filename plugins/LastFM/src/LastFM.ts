@@ -3,7 +3,7 @@ import { Scrobble } from "./types/Scrobble";
 
 import type { AnyRecord } from "@inrixia/helpers";
 import { findModuleProperty, ftch } from "@luna/core";
-import { clipboardWriteText } from "@luna/lib.native";
+import { openExternal } from "@luna/lib.native";
 import { storage } from "./Settings";
 import { hash } from "./hash.native";
 
@@ -79,8 +79,7 @@ export class LastFM {
 	public static async authenticate() {
 		const { token } = await LastFM.sendRequest<{ token: string }>("auth.getToken");
 		const authUrl = `https://www.last.fm/api/auth/?api_key=${this.apiKey}&token=${token}`;
-		window.open(authUrl, "_blank");
-		await clipboardWriteText(authUrl);
+		await openExternal(authUrl);
 		for (let i = 0; i < 10; i++) {
 			const session = await this.sendRequest<{ session: LastFmSession }>("auth.getSession", { token }).catch(() => undefined);
 			if (session !== undefined) return session;
