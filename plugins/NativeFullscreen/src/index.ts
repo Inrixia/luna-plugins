@@ -32,7 +32,7 @@ const onKeyDown = (event: KeyboardEvent) => {
 
 		if (document.fullscreenElement || wimp?.classList.contains("is-fullscreen")) {
 			// Exiting fullscreen
-			document.exitFullscreen();
+			if (document.fullscreenElement) document.exitFullscreen();
 			if (wimp) wimp.classList.remove("is-fullscreen");
 			if (!storage.hideTopBar) setTopBarVisibility(true);
 			if (contentContainer) contentContainer.style.maxHeight = "";
