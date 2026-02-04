@@ -1,5 +1,5 @@
 import type { LunaUnload } from "@luna/core";
-import { redux } from "@luna/lib";
+import { observePromise, redux } from "@luna/lib";
 import { storage } from "./Settings";
 export { Settings } from "./Settings";
 
@@ -16,7 +16,12 @@ export const setTopBarVisibility = (visible: boolean) => {
 	const bar = document.querySelector<HTMLElement>("div[class^='_bar']");
 	if (bar) bar.style.display = visible ? "" : "none";
 };
-if (storage.hideTopBar) setTopBarVisibility(false);
+// Apply hideTopBar setting on load
+if (storage.hideTopBar) {
+	observePromise<HTMLElement>(unloads, "div[class^='_bar']").then((bar) => {
+		if (bar) setTopBarVisibility(false);
+	});
+}
 
 const onKeyDown = (event: KeyboardEvent) => {
 	if (event.key === "F11") {
