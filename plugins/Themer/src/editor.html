@@ -40,17 +40,15 @@
 		});
 
 		require(["vs/editor/editor.main"], () => {
-			const editor = window.editor = monaco.editor.create(
-				document.getElementById("container"),
-				{
-					value: window.themerCSS,
-					language: "css",
-					theme: "vs-dark",
-					smoothScrolling: true,
-				}
-			);
+			const container = document.getElementById("container");
+			const editor = window.editor = monaco.editor.create(container, {
+				value: window.themerCSS,
+				language: "css",
+				theme: "vs-dark",
+				smoothScrolling: true,
+			});
 			editor.onDidChangeModelContent(() => ipcRenderer.setCSS(editor.getValue()));
-			window.addEventListener("resize", editor.layout.bind(editor));
+			new ResizeObserver(() => editor.layout()).observe(container);
 		});
 	</script>
 </body>
