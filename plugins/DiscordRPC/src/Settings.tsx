@@ -5,7 +5,7 @@ import { ReactiveStore } from "@luna/core";
 import React from "react";
 import { errSignal, trace } from ".";
 import { updateActivity } from "./updateActivity";
-import { getAvailablePipes } from "./discord.native";
+import { getAvailablePipes } from "./getAvailablePipes.native";
 
 const defaultCustomStatusText = "{track} by {artist}";
 
@@ -18,6 +18,7 @@ export const settings = await ReactiveStore.getPluginStorage("DiscordRPC", {
 });
 
 if (!settings.customStatusText || settings.customStatusText === "") settings.customStatusText = defaultCustomStatusText;
+if (settings.pipeId === undefined) settings.pipeId = -1;
 
 export const Settings = () => {
 	const [displayOnPause, setDisplayOnPause] = React.useState(settings.displayOnPause);
