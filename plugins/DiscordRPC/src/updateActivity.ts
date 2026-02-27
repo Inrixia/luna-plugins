@@ -9,7 +9,7 @@ import { settings } from "./Settings";
 const StatusDisplayType = await StatusDisplayTypeEnum();
 
 export const updateActivity = async (mediaItem?: MediaItem) => {
-	if (!PlayState.playing && !settings.displayOnPause) return await setActivity();
+	if (!PlayState.playing && !settings.displayOnPause) return await setActivity(undefined, settings.pipeId);
 
 	mediaItem ??= await MediaItem.fromPlaybackContext();
 	if (mediaItem === undefined) return;
@@ -83,5 +83,5 @@ export const updateActivity = async (mediaItem?: MediaItem) => {
 		activity.largeImageUrl = `https://tidal.com/album/${album.id}/u`;
 	}
 
-	await setActivity(activity);
+	await setActivity(activity, settings.pipeId);
 };
