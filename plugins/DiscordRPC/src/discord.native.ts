@@ -14,14 +14,13 @@ export const getClient = asyncDebounce(async (preferredPipeId: number = -1) => {
 	}
 
 	if (rpcClient && currentPipeId !== targetPipe) {
-		await rpcClient.destroy().catch(() => {});
-		rpcClient = null;
+		await rpcClient.destroy();
 	}
 
 	const isAvailable = rpcClient && rpcClient.transport.isConnected && rpcClient.user;
 	if (isAvailable) return rpcClient!;
 
-	if (rpcClient) await rpcClient.destroy().catch(() => {});
+	if (rpcClient) await rpcClient.destroy();
 
 	const clientOptions: ClientOptions = {
 		clientId: "1130698654987067493"
@@ -34,25 +33,18 @@ export const getClient = asyncDebounce(async (preferredPipeId: number = -1) => {
 	rpcClient = new Client(clientOptions);
 	currentPipeId = targetPipe;
 
-	try {
-		await rpcClient.connect();
-		return rpcClient;
-	} catch (error) {
-		rpcClient = null;
-		throw error;
-	}
+	await rpcClient.connect();
+	return rpcClient;
 });
 
 export const setActivity = async (activity?: SetActivity, preferredPipeId: number = -1) => {
 	const client = await getClient(preferredPipeId);
-	if (!client || !client.user) return;
+	if (!client?.user) return;
 	if (!activity) return client.user.clearActivity();
 	return await client.user.setActivity(activity);
 };
 
-export const cleanupRPC = () => {
-	if (rpcClient) rpcClient.destroy().catch(() => {});
-};
+export const cleanupRPC = () => rpcClient?.destroy();
 
 export const StatusDisplayTypeEnum = () => ({
 	Name: StatusDisplayType.NAME,
