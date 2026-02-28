@@ -1,10 +1,11 @@
-import { LunaSettings, LunaSwitchSetting, LunaTextSetting } from "@luna/ui";
+import { LunaSettings, LunaSwitchSetting, LunaTextSetting, LunaSelectSetting, LunaSelectItem } from "@luna/ui";
 
 import { ReactiveStore } from "@luna/core";
 
 import React from "react";
 import { errSignal, trace } from ".";
 import { updateActivity } from "./updateActivity";
+import { getAvailablePipes } from "./getAvailablePipes.native";
 
 const defaultCustomStatusText = "{track} by {artist}";
 
@@ -13,18 +14,52 @@ export const settings = await ReactiveStore.getPluginStorage("DiscordRPC", {
 	displayArtistIcon: true,
 	displayPlaylistButton: true,
 	customStatusText: defaultCustomStatusText,
+	pipeId: -1,
 });
 
 if (!settings.customStatusText || settings.customStatusText === "") settings.customStatusText = defaultCustomStatusText;
+if (settings.pipeId === undefined) settings.pipeId = -1;
 
 export const Settings = () => {
 	const [displayOnPause, setDisplayOnPause] = React.useState(settings.displayOnPause);
 	const [displayArtistIcon, setDisplayArtistIcon] = React.useState(settings.displayArtistIcon);
 	const [displayPlaylistButton, setDisplayPlaylistButton] = React.useState(settings.displayPlaylistButton);
 	const [customStatusText, setCustomStatusText] = React.useState(settings.customStatusText);
+	
+	const [pipeId, setPipeId] = React.useState(settings.pipeId);
+	const [availablePipes, setAvailablePipes] = React.useState<number[]>([]);
+
+	React.useEffect(() => {
+		getAvailablePipes().then((pipes) => {
+			setAvailablePipes(pipes);
+			if (pipes.length > 0 && !pipes.includes(settings.pipeId)) {
+				setPipeId((settings.pipeId = pipes[0]));
+				updateActivity().catch(() => {});
+			}
+		}).catch(() => {});
+	}, []);
 
 	return (
 		<LunaSettings>
+			{availablePipes.length > 1 && (
+				<LunaSelectSetting
+					title="Discord Instance (Pipe ID)"
+					desc="Select which Discord instance to connect to."
+					value={pipeId.toString()}
+					onChange={(e) => {
+						setPipeId((settings.pipeId = parseInt(e.target.value, 10)));
+						updateActivity()
+							.then(() => (errSignal!._ = undefined))
+							.catch(trace.err.withContext("Failed to set activity"));
+					}}
+				>
+					{availablePipes.map((pipe) => (
+						<LunaSelectItem key={pipe} value={pipe.toString()}>
+							Pipe {pipe}
+						</LunaSelectItem>
+					))}
+				</LunaSelectSetting>
+			)}
 			<LunaSwitchSetting
 				title="Display activity when paused"
 				desc="If disabled, when paused discord wont show the activity"
