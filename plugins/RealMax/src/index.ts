@@ -66,53 +66,22 @@ redux.intercept("playQueue/ADD_NOW", unloads, (payload) => {
 redux.intercept(["playQueue/MOVE_TO", "playQueue/MOVE_NEXT", "playQueue/MOVE_PREVIOUS"], unloads, (payload, action) => {
 	(async () => {
 		const { elements, currentIndex } = PlayState.playQueue;
-		let targetIndex: number;
+		let replaced = false;
 		switch (action) {
 			case "playQueue/MOVE_NEXT":
-				targetIndex = currentIndex + 1;
+				replaced = await playMaxItem(elements, currentIndex + 1);
+				if (!replaced) PlayState.next();
 				break;
 			case "playQueue/MOVE_PREVIOUS":
-				targetIndex = currentIndex - 1;
+				replaced = await playMaxItem(elements, currentIndex - 1);
+				if (!replaced) PlayState.previous();
 				break;
 			case "playQueue/MOVE_TO":
-				targetIndex = payload ?? currentIndex;
-				break;
-			default:
-				return;
-		}
-
-		// Pre-swap the target track with its max version before transitioning
-		const element = elements[targetIndex];
-		if (element?.mediaItemId !== undefined) {
-			try {
-				const mediaItem = await MediaItem.fromId(element.mediaItemId);
-				const maxItem = await getMaxItem(mediaItem);
-				if (maxItem !== undefined) {
-					const newElements = [...elements];
-					newElements[targetIndex] = { ...newElements[targetIndex], mediaItemId: maxItem.id };
-					// Update queue but keep currentIndex unchanged — only swap the future track
-					PlayState.updatePlayQueue({
-						elements: newElements,
-						currentIndex,
-					});
-				}
-			} catch (err) {
-				trace.err.withContext(action)(err);
-			}
-		}
-
-		// Transition using normal PlayState methods (works with Tidal Connect)
-		switch (action) {
-			case "playQueue/MOVE_NEXT":
-				PlayState.next();
-				break;
-			case "playQueue/MOVE_PREVIOUS":
-				PlayState.previous();
-				break;
-			case "playQueue/MOVE_TO":
-				PlayState.moveTo(payload ?? currentIndex);
+				replaced = await playMaxItem(elements, payload ?? currentIndex);
+				if (!replaced) PlayState.moveTo(payload ?? currentIndex);
 				break;
 		}
+		if (replaced) PlayState.play();
 	})();
 	return true;
 });
