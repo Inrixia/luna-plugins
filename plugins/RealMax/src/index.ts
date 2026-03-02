@@ -7,18 +7,27 @@ import { settings } from "./Settings";
 
 export { errSignal, unloads } from "./index.safe";
 
-const getFormatString = async (mediaItem: MediaItem): Promise<string> => {
-	const quality = mediaItem.bestQuality;
-	try {
-		const format = await mediaItem.updateFormat(quality.audioQuality);
-		if (format?.bitDepth && format?.sampleRate) return `${format.bitDepth}bit/${format.sampleRate / 1000}kHz`;
-	} catch {}
-	return quality.name;
-};
+const getFormatString = (mediaItem: MediaItem): Promise<string> =>
+	new Promise((resolve) => {
+		const quality = mediaItem.bestQuality;
+		const cleanup = mediaItem.withFormat(new Set(), quality.audioQuality, ({ sampleRate, bitDepth }) => {
+			if (bitDepth && sampleRate) resolve(`${bitDepth}bit/${sampleRate / 1000}kHz`);
+			else resolve(quality.name);
+			cleanup?.();
+		});
+		mediaItem.updateFormat(quality.audioQuality).catch(() => {
+			resolve(quality.name);
+			cleanup?.();
+		});
+	});
 
 const getMaxItem = async (mediaItem?: MediaItem) => {
 	const maxItem = await mediaItem?.max();
 	if (maxItem === undefined) return;
+	if (settings.displayInfoPopups) {
+		const [fromFmt, toFmt] = await Promise.all([getFormatString(mediaItem!), getFormatString(maxItem)]);
+		trace.msg.log(`Found replacement for ${mediaItem!.tidalItem.title} (${fromFmt} -> ${toFmt})`);
+	}
 	if (settings.displayInfoPopups) {
 		const [fromFmt, toFmt] = await Promise.all([getFormatString(mediaItem!), getFormatString(maxItem)]);
 		trace.msg.log(`Found replacement for ${mediaItem!.tidalItem.title} (${fromFmt} -> ${toFmt})`);
