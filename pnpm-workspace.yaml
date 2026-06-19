@@ -1,2 +1,5 @@
 packages:
- - "plugins/*"
+  - plugins/*
+onlyBuiltDependencies:
+  - electron
+  - esbuild
