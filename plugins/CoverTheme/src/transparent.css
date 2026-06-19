@@ -24,7 +24,8 @@ main,
 [class^="_mainContainer"],
 [class^="_sectionHeader"],
 [class^="_header"],
-[class*="smallHeader"] {
+[class*="smallHeader"],
+[class^="_marketText"] {
 	background: unset !important;
 }
 
