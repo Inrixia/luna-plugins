@@ -1,35 +1,35 @@
 name: "Validate & Build"
 
 on:
- workflow_call:
+  workflow_call:
 
 jobs:
- Sanity:
-  name: Build
-  runs-on: ubuntu-latest
+  Sanity:
+    name: Build
+    runs-on: ubuntu-latest
 
-  steps:
-   - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v7
 
-   - name: Install pnpm 📥
-     uses: pnpm/action-setup@v4
-     with:
-      version: latest
+      - name: Install pnpm 📥
+        uses: pnpm/action-setup@v6
+        with:
+          version: latest
 
-   - name: Install Node.js 📥
-     uses: actions/setup-node@v4
-     with:
-      cache: pnpm
-      node-version: latest
+      - name: Install Node.js 📥
+        uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          node-version: latest
 
-   - name: Install dependencies 📥
-     run: pnpm install
+      - name: Install dependencies 📥
+        run: pnpm install
 
-   - name: Build
-     run: pnpm run build
+      - name: Build
+        run: pnpm run build
 
-   - name: Upload Build Artifacts
-     uses: actions/upload-artifact@v4
-     with:
-      name: luna-artifacts
-      path: ./dist
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: luna-artifacts
+          path: ./dist

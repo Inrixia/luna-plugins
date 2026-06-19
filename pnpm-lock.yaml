@@ -31,7 +31,7 @@ importers:
         version: 14.1.1
       luna:
         specifier: github:Inrixia/TidaLuna
-        version: https://codeload.github.com/Inrixia/TidaLuna/tar.gz/dfaa48610534ddb74bb4b19d4d7edab50f6d8c73
+        version: https://codeload.github.com/Inrixia/TidaLuna/tar.gz/0e69460b08308df508c07a6f4bf2615b3987f2bc
       oby:
         specifier: ^15.1.2
         version: 15.1.2
@@ -838,9 +838,9 @@ packages:
     resolution: {integrity: sha512-B5Y16Jr9LB9dHVkh6ZevG+vAbOsNOYCX+sXvFWFu7B3Iz5mijW3zdbMyhsh8ANd2mSWBYdJgnqi+mL7/LrOPYg==}
     engines: {node: 20 || >=22}
 
-  luna@https://codeload.github.com/Inrixia/TidaLuna/tar.gz/dfaa48610534ddb74bb4b19d4d7edab50f6d8c73:
-    resolution: {tarball: https://codeload.github.com/Inrixia/TidaLuna/tar.gz/dfaa48610534ddb74bb4b19d4d7edab50f6d8c73}
-    version: 1.12.5-beta
+  luna@https://codeload.github.com/Inrixia/TidaLuna/tar.gz/0e69460b08308df508c07a6f4bf2615b3987f2bc:
+    resolution: {tarball: https://codeload.github.com/Inrixia/TidaLuna/tar.gz/0e69460b08308df508c07a6f4bf2615b3987f2bc}
+    version: 1.14.1-beta
 
   magic-bytes.js@1.12.1:
     resolution: {integrity: sha512-ThQLOhN86ZkJ7qemtVRGYM+gRgR8GEXNli9H/PMvpnZsE44Xfh3wx9kGJaldg314v85m+bFW6WBMaVHJc/c3zA==}
@@ -2025,7 +2025,7 @@ snapshots:
 
   lru-cache@11.2.4: {}
 
-  luna@https://codeload.github.com/Inrixia/TidaLuna/tar.gz/dfaa48610534ddb74bb4b19d4d7edab50f6d8c73:
+  luna@https://codeload.github.com/Inrixia/TidaLuna/tar.gz/0e69460b08308df508c07a6f4bf2615b3987f2bc:
     dependencies:
       '@inrixia/helpers': 3.21.2
       '@types/clean-css': 4.2.11
