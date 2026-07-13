@@ -9,6 +9,7 @@
 	},
 	"main": "./src/index.ts",
 	"dependencies": {
+		"node-taglib-sharp": "^6.0.3",
 		"sanitize-filename": "^1.6.3"
 	}
 }

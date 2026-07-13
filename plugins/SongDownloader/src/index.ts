@@ -3,6 +3,7 @@ import { ContextMenu, safeInterval, StyleTag } from "@luna/lib";
 
 import { getDownloadFolder, getDownloadPath, getFileName } from "./helpers";
 import { settings } from "./Settings";
+import { tagM4a } from "./tagM4a.native";
 
 import styles from "file://downloadButton.css?minify";
 
@@ -31,7 +32,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			}
 
 			downloadButton.text = `Loading tags...`;
-			const { tags } = await mediaItem.flacTags();
+			const { tags, coverUrl } = await mediaItem.flacTags();
 
 			downloadButton.text = `Fetching filename...`;
 			const fileName = await getFileName(mediaItem, settings.downloadQuality);
@@ -56,7 +57,16 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 				},
 				50,
 			);
-			await mediaItem.download(path, settings.downloadQuality).catch(trace.msg.err.withContext(`Failed to download ${tags.title}`));
+			await mediaItem
+				.download(path, settings.downloadQuality)
+				.then(async () => {
+					// FLAC is tagged in-flight by the FlacStreamTagger, DASH (m4a) streams are written untagged
+					if ((await mediaItem.fileExtension(settings.downloadQuality)) === "m4a") {
+						downloadButton.text = `Writing tags...`;
+						await tagM4a(path, tags, coverUrl);
+					}
+				})
+				.catch(trace.msg.err.withContext(`Failed to download ${tags.title}`));
 			clearInterval();
 		}
 		downloadButton.text = defaultText;
