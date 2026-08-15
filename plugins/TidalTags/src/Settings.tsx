@@ -46,7 +46,7 @@ export const Settings = () => {
 			/>
 			<LunaSwitchSetting
 				title="Auto populate columns"
-				desc="Populate clumns with format info without having to play the track"
+				desc="Populate columns with format info without having to play the track"
 				checked={autoPopulateColumns}
 				onChange={(_, checked) => {
 					setAutoPopulateColumns((settings.autoPopulateColumns = checked));
