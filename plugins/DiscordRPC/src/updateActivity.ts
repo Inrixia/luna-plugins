@@ -69,7 +69,7 @@ const _updateActivity = async (mediaItem?: MediaItem) => {
 	const state = redux.store.getState();
 	const { sourceUrl, sourceEntityId, sourceEntityType } = state.playQueue;
 	const thisPlaylist = state?.content?.playlists[sourceEntityId] ?? [];
-	const sharingLevel = thisPlaylist?.sharingLevel ?? "PRIVATE";
+	const publicPlaylist = thisPlaylist?.publicPlaylist ?? thisPlaylist?.sharingLevel === "PUBLIC";
 
 	const activity: SetActivity = { type: 2 }; // Listening type
 
@@ -83,7 +83,7 @@ const _updateActivity = async (mediaItem?: MediaItem) => {
 		},
 	];
 
-	if (sourceEntityType === "playlist" && sharingLevel !== "PRIVATE" && settings.displayPlaylistButton) {
+	if (sourceEntityType === "playlist" && publicPlaylist && settings.displayPlaylistButton) {
 		activity.buttons.push({
 			url: trackSourceUrl,
 			label: "Playlist",
