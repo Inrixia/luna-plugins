@@ -1,6 +1,6 @@
 {
 	"name": "Tidal Tags",
-	"description": "Adds tags showing track qualities and current song quality.",
+	"description": "Adds tags showing track qualities and current song quality, and a context menu entry to copy Artist - Title.",
 	"homepage": "https://github.com/Inrixia/luna-plugins#TidalTags",
 	"author": {
 		"name": "Inrixia",
