@@ -36,39 +36,49 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		try {
 			for await (let mediaItem of await mediaCollection.mediaItems()) {
 				if (downloadState.cancel) break;
-				if (settings.useRealMAX) {
-					downloadButton.text = `Checking RealMax...`;
-					mediaItem = (await mediaItem.max()) ?? mediaItem;
+				// Report a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
+				try {
+					// Don't show the previous track's progress while this one is prepared
+					downloadButton.elem?.style.removeProperty("--progress");
+					if (settings.useRealMAX) {
+						downloadButton.text = `Checking RealMax...`;
+						mediaItem = (await mediaItem.max()) ?? mediaItem;
+					}
+
+					downloadButton.text = `Loading tags...`;
+					await mediaItem.flacTags();
+
+					downloadButton.text = `Fetching filename...`;
+					const fileName = await getFileName(mediaItem, settings.downloadQuality);
+
+					downloadButton.text = `Fetching download path...`;
+					const path = downloadFolder !== undefined ? [downloadFolder, fileName] : await getDownloadPath(fileName);
+					if (path === undefined) return;
+
+					downloadButton.text = `Downloading...`;
+					const clearInterval = safeInterval(
+						unloads,
+						async () => {
+							const progress = await mediaItem.downloadProgress();
+							if (progress === undefined) return;
+							const { total, downloaded } = progress;
+							if (total === undefined || downloaded === undefined) return;
+							const percent = (downloaded / total) * 100;
+							downloadButton.elem!.style.setProperty("--progress", `${percent}%`);
+							const downloadedMB = (downloaded / 1048576).toFixed(0);
+							const totalMB = (total / 1048576).toFixed(0);
+							downloadButton.text = `Downloading... ${downloadedMB}/${totalMB}MB ${percent.toFixed(0)}%`;
+						},
+						50,
+					);
+					try {
+						await mediaItem.download(path, settings.downloadQuality);
+					} finally {
+						clearInterval();
+					}
+				} catch (err) {
+					trace.msg.err.withContext(`Failed to download ${mediaItem.tidalItem.title ?? mediaItem.id}:`)(err);
 				}
-
-				downloadButton.text = `Loading tags...`;
-				const { tags } = await mediaItem.flacTags();
-
-				downloadButton.text = `Fetching filename...`;
-				const fileName = await getFileName(mediaItem, settings.downloadQuality);
-
-				downloadButton.text = `Fetching download path...`;
-				const path = downloadFolder !== undefined ? [downloadFolder, fileName] : await getDownloadPath(fileName);
-				if (path === undefined) return;
-
-				downloadButton.text = `Downloading...`;
-				const clearInterval = safeInterval(
-					unloads,
-					async () => {
-						const progress = await mediaItem.downloadProgress();
-						if (progress === undefined) return;
-						const { total, downloaded } = progress;
-						if (total === undefined || downloaded === undefined) return;
-						const percent = (downloaded / total) * 100;
-						downloadButton.elem!.style.setProperty("--progress", `${percent}%`);
-						const downloadedMB = (downloaded / 1048576).toFixed(0);
-						const totalMB = (total / 1048576).toFixed(0);
-						downloadButton.text = `Downloading... ${downloadedMB}/${totalMB}MB ${percent.toFixed(0)}%`;
-					},
-					50,
-				);
-				await mediaItem.download(path, settings.downloadQuality).catch(trace.msg.err.withContext(`Failed to download ${tags.title}`));
-				clearInterval();
 			}
 		} finally {
 			downloadState.active = false;
