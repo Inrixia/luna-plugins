@@ -9,7 +9,12 @@ export const unloads = new Set<LunaUnload>();
 // #region From remote
 ipcRenderer.on(unloads, "remote.desktop.notify.media.changed", async ({ mediaId }) => {
 	const mediaItem = await MediaItem.fromId(mediaId);
-	mediaItem?.play();
+	if (mediaItem !== undefined) {
+		// Replace the local queue with only this item, otherwise Tidal moves on to its own next queue item
+		// when the track ends (without ENDED), so the remote is never told and the desktop plays a track the remote does not know about
+		redux.actions["playQueue/ADD_NOW"]({ context: { type: "UNKNOWN" }, mediaItemIds: [mediaItem.id] });
+		PlayState.play();
+	}
 	send({ command: "onRequestNextMedia", type: "media" });
 });
 ipcRenderer.on(unloads, "remote.desktop.prefetch", ({ mediaId, mediaType }) => {
