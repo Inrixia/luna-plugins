@@ -36,7 +36,8 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		try {
 			for await (let mediaItem of await mediaCollection.mediaItems()) {
 				if (downloadState.cancel) break;
-				if (settings.useRealMAX) {
+				// RealMAX only finds better versions of tracks
+				if (settings.useRealMAX && mediaItem.contentType === "track") {
 					downloadButton.text = `Checking RealMax...`;
 					mediaItem = (await mediaItem.max()) ?? mediaItem;
 				}
