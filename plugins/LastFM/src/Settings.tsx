@@ -41,7 +41,7 @@ export const Settings = () => {
 			</LunaButtonSetting>
 			<LunaSwitchSetting
 				title="Ignore DesktopConnect playback"
-				desc="Don't scrobble or update now playing while playback is controlled from another device via DesktopConnect, that device already scrobbles it"
+				desc="Don't scrobble or update now playing while another device controls playback via DesktopConnect. Enable if that device already scrobbles (e.g. Last.fm is connected in its TIDAL app)"
 				checked={ignoreDesktopConnect}
 				onChange={(_, checked) => setIgnoreDesktopConnect((storage.ignoreDesktopConnect = checked))}
 			/>
