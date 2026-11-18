@@ -1,4 +1,4 @@
-import { LunaButtonSetting, LunaSettings } from "@luna/ui";
+import { LunaButtonSetting, LunaSettings, LunaSwitchSetting } from "@luna/ui";
 import { errSignal, trace } from ".";
 import { LastFM, type LastFmSession } from "./LastFM";
 
@@ -8,11 +8,13 @@ import React from "react";
 
 export const storage = await ReactiveStore.getPluginStorage<{
 	session?: LastFmSession;
-}>("LastFM");
+	ignoreDesktopConnect: boolean;
+}>("LastFM", { ignoreDesktopConnect: false });
 
 export const Settings = () => {
 	const [session, setSession] = React.useState(storage.session);
 	const [loading, setLoading] = React.useState(false);
+	const [ignoreDesktopConnect, setIgnoreDesktopConnect] = React.useState(storage.ignoreDesktopConnect);
 
 	const connected = session !== undefined;
 
@@ -37,6 +39,12 @@ export const Settings = () => {
 			>
 				{loading ? "Loading..." : connected ? "Reconnect" : "Connect"}
 			</LunaButtonSetting>
+			<LunaSwitchSetting
+				title="Ignore DesktopConnect playback"
+				desc="Don't scrobble or update now playing while playback is controlled from another device via DesktopConnect, that device already scrobbles it"
+				checked={ignoreDesktopConnect}
+				onChange={(_, checked) => setIgnoreDesktopConnect((storage.ignoreDesktopConnect = checked))}
+			/>
 		</LunaSettings>
 	);
 };
