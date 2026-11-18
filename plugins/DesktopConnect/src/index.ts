@@ -8,8 +8,12 @@ export const unloads = new Set<LunaUnload>();
 
 // #region From remote
 ipcRenderer.on(unloads, "remote.desktop.notify.media.changed", async ({ mediaId }) => {
-	const mediaItem = await MediaItem.fromId(mediaId);
-	mediaItem?.play();
+	// The phone app re-sends the current media when it reconnects (e.g. after iOS suspends it),
+	// playing it again would restart the track from 0
+	if (String(mediaId) !== String(PlayState.playbackContext?.actualProductId)) {
+		const mediaItem = await MediaItem.fromId(mediaId);
+		mediaItem?.play();
+	}
 	send({ command: "onRequestNextMedia", type: "media" });
 });
 ipcRenderer.on(unloads, "remote.desktop.prefetch", ({ mediaId, mediaType }) => {
