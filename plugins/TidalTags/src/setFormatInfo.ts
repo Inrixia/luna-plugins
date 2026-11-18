@@ -12,7 +12,11 @@ formatInfoElem.className = "format-info";
 unloads.add(() => formatInfoElem.remove());
 
 const setupInfoElem = memoizeArgless(async () => {
-	const qualityIndicator = await observePromise<HTMLElement>(unloads, `[data-test-media-state-indicator-streaming-quality]`);
+	// Tidal 2.47+ replaced the media state indicator with a quality badge
+	const qualityIndicator = await observePromise<HTMLElement>(
+		unloads,
+		`[data-test-media-state-indicator-streaming-quality], [data-test-quality-badge-streaming-quality]`,
+	);
 	if (qualityIndicator == null) throw new Error("Failed to find tidal media-state-indicator element!");
 
 	const qualityElementContainer = qualityIndicator.parentElement;
@@ -22,6 +26,15 @@ const setupInfoElem = memoizeArgless(async () => {
 	qualityElementContainer.prepend(formatInfoElem);
 	// Fix for grid spacing issues
 	qualityElementContainer.style.setProperty("grid-auto-columns", "auto");
+	// The quality badge's container is a block, put the format info next to the badge instead of above it
+	if (qualityIndicator.hasAttribute("data-test-quality-badge-streaming-quality")) {
+		qualityElementContainer.style.setProperty("display", "flex");
+		qualityElementContainer.style.setProperty("align-items", "center");
+		qualityElementContainer.style.setProperty("gap", "8px");
+		unloads.add(() => {
+			for (const property of ["display", "align-items", "gap"]) qualityElementContainer.style.removeProperty(property);
+		});
+	}
 
 	const progressBar = <HTMLElement>document.getElementById("progressBar");
 	if (progressBar === null) throw new Error("Failed to find tidal progressBar element!");
