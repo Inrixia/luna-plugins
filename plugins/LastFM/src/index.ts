@@ -19,6 +19,7 @@ const makeScrobbleOpts = async (mediaItem: MediaItem): Promise<ScrobbleOpts> => 
 		album: await album?.title(),
 		albumArtist: (await album?.artist())?.name,
 		trackNumber: mediaItem.trackNumber?.toString(),
+		duration: mediaItem.duration?.toFixed(0),
 		mbid: await mediaItem.brainzId(),
 		timestamp: (Date.now() / 1000).toFixed(0),
 	};
