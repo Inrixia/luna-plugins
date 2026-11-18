@@ -2,11 +2,13 @@ import { ReactiveStore } from "@luna/core";
 import { MediaItem } from "@luna/lib";
 import { LunaSettings, LunaSwitchSetting } from "@luna/ui";
 import React from "react";
+import { updateAlbumCards } from "./setAlbumQualityTags";
 import { formatInfoElem, setFormatInfo } from "./setFormatInfo";
 
 export const settings = await ReactiveStore.getPluginStorage("TidalTags", {
 	displayFormatBorder: true,
 	displayQalityTags: true,
+	displayAlbumQualityTags: true,
 	displayFormatColumns: true,
 	autoPopulateColumns: false,
 });
@@ -14,6 +16,7 @@ export const settings = await ReactiveStore.getPluginStorage("TidalTags", {
 export const Settings = () => {
 	const [displayFormatBorder, setDisplayFormatBorder] = React.useState(settings.displayFormatBorder);
 	const [displayQalityTags, setDisplayQalityTags] = React.useState(settings.displayQalityTags);
+	const [displayAlbumQualityTags, setDisplayAlbumQualityTags] = React.useState(settings.displayAlbumQualityTags);
 	const [displayFormatColumns, setDisplayFormatColumns] = React.useState(settings.displayFormatColumns);
 	const [autoPopulateColumns, setAutoPopulateColumns] = React.useState(settings.autoPopulateColumns);
 	return (
@@ -34,6 +37,15 @@ export const Settings = () => {
 				checked={displayQalityTags}
 				onChange={(_, checked) => {
 					setDisplayQalityTags((settings.displayQalityTags = checked));
+				}}
+			/>
+			<LunaSwitchSetting
+				title="Album quality tags"
+				desc="Display quality tags on album cards"
+				checked={displayAlbumQualityTags}
+				onChange={(_, checked) => {
+					setDisplayAlbumQualityTags((settings.displayAlbumQualityTags = checked));
+					updateAlbumCards();
 				}}
 			/>
 			<LunaSwitchSetting

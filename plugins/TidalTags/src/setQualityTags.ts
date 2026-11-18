@@ -7,18 +7,25 @@ export const setQualityTags = (trackRow: Element, mediaItem: MediaItem) => {
 	const { qualityTags, bestQuality } = mediaItem;
 	const id = String(mediaItem.id);
 
-	let span = trackTitle.querySelector(".quality-tag-container");
+	const span = trackTitle.querySelector(".quality-tag-container");
 	if (span?.getAttribute("track-id") === id) return;
 
 	// Remove old span before checking if we need a new one
 	span?.remove();
 
+	const tags = createQualityTags(qualityTags, bestQuality);
+	if (tags === undefined) return;
+
+	tags.setAttribute("track-id", id);
+	trackTitle.appendChild(tags);
+};
+
+export const createQualityTags = (qualityTags: Quality[], bestQuality: Quality): HTMLSpanElement | undefined => {
 	if (qualityTags.length === 0) return;
 	if (qualityTags.length === 1 && qualityTags[0] === Quality.High && bestQuality === Quality.High) return;
-	span = document.createElement("span");
+	const span = document.createElement("span");
 
 	span.className = "quality-tag-container";
-	span.setAttribute("track-id", id);
 
 	if (bestQuality < Quality.High) {
 		const tagElement = document.createElement("span");
@@ -38,5 +45,5 @@ export const setQualityTags = (trackRow: Element, mediaItem: MediaItem) => {
 		span.appendChild(tagElement);
 	}
 
-	trackTitle.appendChild(span);
+	return span;
 };
