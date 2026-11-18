@@ -1,5 +1,5 @@
-import { Tracer, type LunaUnload } from "@luna/core";
-import { ipcRenderer, MediaItem, PlayState, redux } from "@luna/lib";
+import { LunaPlugin, Tracer, type LunaUnload } from "@luna/core";
+import { MediaItem, PlayState, redux } from "@luna/lib";
 
 export const { trace, errSignal } = Tracer("[last.fm]");
 
@@ -32,8 +32,10 @@ export { Settings } from "./Settings";
 export const unloads = new Set<LunaUnload>();
 
 // Playback controlled from another device via DesktopConnect can be scrobbled by that device
-let remoteSessionActive = false;
-ipcRenderer.on(unloads, "remote.desktop.notify.session.state", (state: number) => (remoteSessionActive = state !== 0));
+const remoteSessionActive = () => {
+	const desktopConnect = LunaPlugin.getByName("DesktopConnect")?.exports as { isRemoteSessionActive?: () => boolean } | undefined;
+	return desktopConnect?.isRemoteSessionActive?.() === true;
+};
 // Plays started during a remote session per track, checked when they are scrobbled (after the next transition)
 const remotePlays = new Map<MediaItem["id"], number>();
 const isRemotePlay = (id: MediaItem["id"]) => {
@@ -46,7 +48,7 @@ const isRemotePlay = (id: MediaItem["id"]) => {
 
 unloads.add(
 	MediaItem.onMediaTransition(unloads, (mediaItem) => {
-		if (remoteSessionActive && storage.ignoreDesktopConnect) return remotePlays.set(mediaItem.id, (remotePlays.get(mediaItem.id) ?? 0) + 1);
+		if (storage.ignoreDesktopConnect && remoteSessionActive()) return remotePlays.set(mediaItem.id, (remotePlays.get(mediaItem.id) ?? 0) + 1);
 		makeScrobbleOpts(mediaItem).then(LastFM.updateNowPlaying).catch(trace.msg.err.withContext(`Failed to updateNowPlaying!`));
 	})
 );

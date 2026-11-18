@@ -31,7 +31,11 @@ ipcRenderer.on(unloads, "remote.destop.set.volume.mute", ({ level, mute }: { lev
 // #region To remote
 // Using send from remoteService.native as its more consistent
 const sessionUnloads = new Set<LunaUnload>();
+let remoteSessionActive = false;
+/** True while another device controls playback, used by other plugins (e.g. LastFM) */
+export const isRemoteSessionActive = () => remoteSessionActive;
 ipcRenderer.on(unloads, "remote.desktop.notify.session.state", (state) => {
+	remoteSessionActive = state !== 0;
 	if (state === 0) unloadSet(sessionUnloads);
 	if (sessionUnloads.size !== 0) return;
 	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
