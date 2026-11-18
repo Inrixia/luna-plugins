@@ -30,6 +30,17 @@ type ResponseType<T> =
 			message: string;
 	  };
 
+// TIDAL uses Unicode hyphens (U+2010 HYPHEN, U+2011 NON-BREAKING HYPHEN) in some titles where Last.fm has "-".
+// En/em dashes are left alone as they are distinct characters used intentionally in titles.
+const unicodeHyphens = /[\u2010\u2011]/g;
+const normalizeHyphens = <O extends NowPlayingOpts>(opts: O): O => {
+	const normalized: AnyRecord = { ...opts };
+	for (const key of ["track", "artist", "album", "albumArtist"]) {
+		if (typeof normalized[key] === "string") normalized[key] = normalized[key].replace(unicodeHyphens, "-");
+	}
+	return <O>normalized;
+};
+
 export type LastFmSession = {
 	name: string;
 	key: string;
@@ -95,10 +106,10 @@ export class LastFM {
 	}
 
 	public static async updateNowPlaying(opts: NowPlayingOpts) {
-		return LastFM.sendRequest<NowPlaying>("track.updateNowPlaying", opts);
+		return LastFM.sendRequest<NowPlaying>("track.updateNowPlaying", normalizeHyphens(opts));
 	}
 
 	public static async scrobble(opts: ScrobbleOpts) {
-		return LastFM.sendRequest<Scrobble>("track.scrobble", opts);
+		return LastFM.sendRequest<Scrobble>("track.scrobble", normalizeHyphens(opts));
 	}
 }
