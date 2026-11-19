@@ -36,8 +36,11 @@ const currentElement = () => PlayState.playQueue.elements[PlayState.playQueue.cu
 // Tidal may play another id than the queued one (a newer version of the track), so compare the queue element
 const isLoaded = (mediaId: string) => loadedMedia?.mediaId === mediaId && currentElement()?.uid === loadedMedia.uid;
 const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
-	// A hanging request must not hold up the remote's other commands (pause, stop) behind it
-	const mediaItem = await withTimeout(MediaItem.fromId(mediaId, mediaType === 1 ? "video" : "track"), loadTimeoutMs);
+	// A hanging request must not hold up the remote's other commands (pause, stop) behind it, a failed one counts as not found
+	const mediaItem = await withTimeout(MediaItem.fromId(mediaId, mediaType === 1 ? "video" : "track"), loadTimeoutMs).catch((err) => {
+		trace.err.withContext("load remote media")(err);
+		return undefined;
+	});
 	loadFailed = mediaItem === undefined;
 	if (mediaItem === undefined) {
 		PlayState.pause();
@@ -50,18 +53,21 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
 	// Added to the emptied queue Tidal loads it without starting it and the remote sends play.
 	// ADD_NOW would start it (and Tidal ignores a pause while it is still loading),
 	// a queue RESET keeps the old audio when Tidal's saved player state has the same media
-	const loaded = nextAction("playbackControls/MEDIA_PRODUCT_TRANSITION", loadTimeoutMs);
-	// Clearing the queue also resets repeat and shuffle
+	let uid: string | undefined;
+	// Only the switch to the added item, not a late one of the previous track
+	const loaded = nextAction("playbackControls/MEDIA_PRODUCT_TRANSITION", loadTimeoutMs, () => uid !== undefined && currentElement()?.uid === uid);
+	// Clearing the queue also resets repeat and shuffle.
+	// Repeat one is not kept, the track would loop and the remote would never be told it ended
 	const { repeatMode, shuffleModeEnabled } = PlayState.playQueue;
 	redux.actions["playQueue/CLEAR_QUEUE"]();
-	redux.actions["playQueue/SET_REPEAT_MODE"](repeatMode);
+	redux.actions["playQueue/SET_REPEAT_MODE"](repeatMode === redux.RepeatMode.One ? redux.RepeatMode.Off : repeatMode);
 	if (shuffleModeEnabled) redux.actions["playQueue/ENABLE_SHUFFLE_MODE"]();
 	// The remote sends the id as a string, Tidal keeps the item's own (number) id in its queue
 	redux.actions["playQueue/ADD_NEXT"]({ context: { type: "UNKNOWN" }, mediaItemIds: [mediaItem.tidalItem?.id ?? mediaItem.id] });
 	startSession();
 	// The next commands (seek) must apply to the new item, so wait until Tidal switched to it.
 	// If it did not switch, a prepare sent again loads it again
-	const uid = currentElement()?.uid;
+	uid = currentElement()?.uid;
 	if ((await loaded) !== undefined && uid !== undefined) loadedMedia = { mediaId, uid };
 	return true;
 };
@@ -97,7 +103,7 @@ ipcRenderer.on(
 		if (newer && isLoaded(mediaId)) return;
 		const loaded = await loadRemoteMedia(mediaId, mediaType);
 		send({ command: "onRequestNextMedia", type: "media" });
-		if (loaded && !newer) await play();
+		if (loaded && !newer) play();
 	}),
 );
 ipcRenderer.on(
@@ -109,23 +115,26 @@ ipcRenderer.on(unloads, "remote.desktop.prefetch", ({ mediaId, mediaType }) => {
 	redux.actions["player/PRELOAD_ITEM"]({ productId: mediaId, productType: mediaType === 0 ? "track" : "video" });
 });
 ipcRenderer.on(unloads, "remote.desktop.seek", inOrder((time: number) => !loadFailed && PlayState.seek(time / 1000)));
-// Tidal ignores a pause until it really started playing, so the remote's next command (pause) waits for it
-const play = async () => {
+// Tidal ignores a pause until it really started playing, so a pause or stop sent while it starts is applied again once it plays.
+// The commands after it do not wait for that, playback may never start
+let pauseWhenPlaying = false;
+const play = () => {
 	if (loadFailed || PlayState.playing) return;
 	remotePaused = false;
-	const playing = nextAction("playbackControls/SET_PLAYBACK_STATE", loadTimeoutMs, (state) => state === "PLAYING");
+	pauseWhenPlaying = false;
+	nextAction("playbackControls/SET_PLAYBACK_STATE", loadTimeoutMs, (state) => state === "PLAYING").then((state) => {
+		if (state !== undefined && pauseWhenPlaying) PlayState.pause();
+		pauseWhenPlaying = false;
+	});
 	PlayState.play();
-	await playing;
+};
+const pause = () => {
+	remotePaused = true;
+	pauseWhenPlaying = true;
+	PlayState.pause();
 };
 ipcRenderer.on(unloads, "remote.desktop.play", inOrder(play));
-ipcRenderer.on(
-	unloads,
-	"remote.desktop.pause",
-	inOrder(() => {
-		remotePaused = true;
-		PlayState.pause();
-	}),
-);
+ipcRenderer.on(unloads, "remote.desktop.pause", inOrder(pause));
 ipcRenderer.on(unloads, "remote.desktop.set.shuffle", PlayState.setShuffle.bind(PlayState));
 ipcRenderer.on(unloads, "remote.desktop.set.repeat.mode", PlayState.setRepeatMode.bind(PlayState));
 ipcRenderer.on(unloads, "remote.destop.set.volume.mute", ({ level, mute }: { level: number; mute: boolean }) => {
@@ -145,8 +154,7 @@ ipcRenderer.on(
 	"remote.desktop.notify.session.state",
 	inOrder((state: number) => {
 		if (state === 0) {
-			loadedMedia = undefined;
-			loadFailed = false;
+			endRemoteMedia();
 			return unloadSet(sessionUnloads);
 		}
 		startSession();
@@ -158,13 +166,17 @@ ipcRenderer.on(
 	unloads,
 	"remote.desktop.stop",
 	inOrder(() => {
-		loadedMedia = undefined;
-		loadFailed = false;
+		endRemoteMedia();
 		if (sessionUnloads.size === 0) return;
-		PlayState.pause();
+		pause();
 		unloadSet(sessionUnloads);
 	}),
 );
+function endRemoteMedia() {
+	loadedMedia = undefined;
+	loadFailed = false;
+	remotePaused = false;
+}
 function startSession() {
 	if (sessionUnloads.size !== 0) return;
 	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
