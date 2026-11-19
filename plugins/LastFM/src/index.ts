@@ -36,9 +36,9 @@ type DesktopConnectExports = { isRemoteSessionActive?: () => boolean };
 const remoteSessionActive = () =>
 	LunaPlugin.getAllByName("DesktopConnect").some((plugin) => (plugin.exports as DesktopConnectExports | undefined)?.isRemoteSessionActive?.());
 // Plays started during a remote session per track, checked when they are scrobbled (after the next transition).
-// Only the current and previous track can still be scrobbled, older entries are dropped on transition.
+// On transition only the track being left can still be scrobbled, entries of older plays are dropped.
 const remotePlays = new Map<MediaItem["id"], number>();
-let previousId: MediaItem["id"] | undefined;
+let playingId: MediaItem["id"] | undefined;
 const isRemotePlay = (id: MediaItem["id"]) => {
 	const plays = remotePlays.get(id);
 	if (plays === undefined) return false;
@@ -49,8 +49,8 @@ const isRemotePlay = (id: MediaItem["id"]) => {
 
 unloads.add(
 	MediaItem.onMediaTransition(unloads, (mediaItem) => {
-		for (const id of remotePlays.keys()) if (id !== previousId && id !== mediaItem.id) remotePlays.delete(id);
-		previousId = mediaItem.id;
+		for (const id of remotePlays.keys()) if (id !== playingId) remotePlays.delete(id);
+		playingId = mediaItem.id;
 		if (storage.ignoreDesktopConnect && remoteSessionActive()) {
 			remotePlays.set(mediaItem.id, (remotePlays.get(mediaItem.id) ?? 0) + 1);
 			return;
