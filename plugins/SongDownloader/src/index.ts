@@ -33,6 +33,8 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		downloadState.active = true;
 		downloadState.cancel = false;
 		downloadButton.elem.classList.add("download-button");
+		// Keep showing that a stop was requested until the current track is done
+		const setStatus = (text: string) => (downloadButton.text = downloadState.cancel ? `Stopping...` : text);
 		try {
 			for await (let mediaItem of await mediaCollection.mediaItems()) {
 				if (downloadState.cancel) break;
@@ -40,20 +42,28 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 				try {
 					// Don't show the previous track's progress while this one is prepared
 					downloadButton.elem?.style.removeProperty("--progress");
+					const original = mediaItem;
 					if (settings.useRealMAX) {
-						downloadButton.text = `Checking RealMax...`;
+						setStatus(`Checking RealMax...`);
 						// If the lookup fails, download the track as it is
-						mediaItem = (await mediaItem.max().catch(trace.warn.withContext("RealMax lookup failed"))) ?? mediaItem;
+						mediaItem =
+							(await mediaItem.max().catch(trace.msg.warn.withContext(`RealMax lookup failed for ${mediaItem.tidalItem.title}:`))) ?? mediaItem;
 					}
 
-					downloadButton.text = `Fetching filename...`;
-					const fileName = await getFileName(mediaItem, settings.downloadQuality);
+					setStatus(`Fetching filename...`);
+					const fileName = await getFileName(mediaItem, settings.downloadQuality).catch((err) => {
+						if (mediaItem === original) throw err;
+						// The RealMax version can be unavailable (e.g. region-locked) while the original is not
+						trace.msg.warn.withContext(`RealMax version of ${original.tidalItem.title} is unavailable, using the original:`)(err);
+						mediaItem = original;
+						return getFileName(mediaItem, settings.downloadQuality);
+					});
 
-					downloadButton.text = `Fetching download path...`;
+					setStatus(`Fetching download path...`);
 					const path = downloadFolder !== undefined ? [downloadFolder, fileName] : await getDownloadPath(fileName);
 					if (path === undefined) return;
 
-					downloadButton.text = `Downloading...`;
+					setStatus(`Downloading...`);
 					let downloading = true;
 					const clearInterval = safeInterval(
 						unloads,
@@ -67,7 +77,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 							downloadButton.elem!.style.setProperty("--progress", `${percent}%`);
 							const downloadedMB = (downloaded / 1048576).toFixed(0);
 							const totalMB = (total / 1048576).toFixed(0);
-							downloadButton.text = `Downloading... ${downloadedMB}/${totalMB}MB ${percent.toFixed(0)}%`;
+							setStatus(`Downloading... ${downloadedMB}/${totalMB}MB ${percent.toFixed(0)}%`);
 						},
 						50,
 					);
