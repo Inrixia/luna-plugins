@@ -35,16 +35,24 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		downloadButton.elem.classList.add("download-button");
 		// Keep showing that a stop was requested until the current track is done
 		const setStatus = (text: string) => (downloadButton.text = downloadState.cancel ? `Stopping...` : text);
+		// Folder picked in the save dialog for the current track, so a retry of that track doesn't ask again
+		let trackFolder: string | undefined;
 		// Returns false if the save dialog was cancelled
-		const downloadTrack = async (mediaItem: MediaItem) => {
+		const downloadTrack = async (mediaItem: MediaItem, folder = downloadFolder) => {
 			// Don't show the previous track's progress while this one is prepared
 			downloadButton.elem?.style.removeProperty("--progress");
 			setStatus(`Fetching filename...`);
 			const fileName = await getFileName(mediaItem, settings.downloadQuality);
 
 			setStatus(`Fetching download path...`);
-			const path = downloadFolder !== undefined ? [downloadFolder, fileName] : await getDownloadPath(fileName);
-			if (path === undefined) return false;
+			let path: string | string[];
+			if (folder !== undefined) path = [folder, fileName];
+			else {
+				const filePath = await getDownloadPath(fileName);
+				if (filePath === undefined) return false;
+				trackFolder = filePath.slice(0, Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")));
+				path = filePath;
+			}
 
 			setStatus(`Downloading...`);
 			let downloading = true;
@@ -76,32 +84,41 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		const failed: string[] = [];
 		let tried = 0;
 		try {
-			for await (const original of await mediaCollection.mediaItems()) {
-				if (downloadState.cancel) break;
-				tried++;
-				const title = original.tidalItem.title ?? `${original.id}`;
-				// Note a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
-				try {
-					let mediaItem = original;
-					if (settings.useRealMAX) {
-						setStatus(`Checking RealMax...`);
-						// If the lookup fails, download the track as it is
-						mediaItem = (await original.max().catch(trace.warn.withContext(`RealMax lookup failed for ${title}:`))) ?? original;
+			try {
+				for await (const original of await mediaCollection.mediaItems()) {
+					if (downloadState.cancel) break;
+					tried++;
+					trackFolder = undefined;
+					const title = original.tidalItem.title ?? `${original.id}`;
+					// Note a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
+					try {
+						let mediaItem = original;
+						if (settings.useRealMAX) {
+							setStatus(`Checking RealMax...`);
+							// If the lookup fails, download the track as it is
+							mediaItem = (await original.max().catch(trace.warn.withContext(`RealMax lookup failed for ${title}:`))) ?? original;
+						}
+						const saved = await downloadTrack(mediaItem).catch((err) => {
+							if (mediaItem === original || downloadState.cancel) throw err;
+							// The RealMax version can fail (e.g. be region-locked) while the original does not
+							trace.warn.withContext(`RealMax version of ${title} failed, using the original:`)(err);
+							return downloadTrack(original, downloadFolder ?? trackFolder);
+						});
+						// Cancelling the save dialog stops the download like the Stop click does
+						if (!saved) break;
+					} catch (err) {
+						failed.push(`${title} (${err instanceof Error ? err.message : err})`);
+						trace.err.withContext(`Failed to download ${title}:`)(err);
 					}
-					const saved = await downloadTrack(mediaItem).catch((err) => {
-						if (mediaItem === original) throw err;
-						// The RealMax version can fail (e.g. be region-locked) while the original does not
-						trace.warn.withContext(`RealMax version of ${title} failed, using the original:`)(err);
-						return downloadTrack(original);
-					});
-					// Cancelling the save dialog stops the download like the Stop click does
-					if (!saved) break;
-				} catch (err) {
-					failed.push(title);
-					trace.err.withContext(`Failed to download ${title}:`)(err);
 				}
+			} catch (err) {
+				// Loading the next track of the collection failed, the remaining tracks can't be downloaded
+				trace.msg.err.withContext(`Download stopped, loading the tracks failed:`)(err);
 			}
-			if (failed.length !== 0) trace.msg.err(`Failed to download ${failed.length} of ${tried} tracks: ${failed.join(", ")}`);
+			if (failed.length !== 0) {
+				const shown = failed.slice(0, 5).join(", ") + (failed.length > 5 ? ` and ${failed.length - 5} more` : "");
+				trace.msg.err(`Failed to download ${failed.length} of ${tried} track${tried === 1 ? "" : "s"}: ${shown}`);
+			}
 		} finally {
 			downloadState.active = false;
 			downloadState.cancel = false;
