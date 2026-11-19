@@ -2,6 +2,8 @@ import { trace, unloads } from "./index.safe";
 
 import { ContextMenu, Playlist, type MediaItem } from "@luna/lib";
 
+import { getMaxItemQuiet } from ".";
+
 const maxButton = ContextMenu.addButton(unloads);
 let creating = false;
 
@@ -24,12 +26,11 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			let replacements = 0;
 			for await (const mediaItem of await mediaCollection.mediaItems()) {
 				// A failed lookup keeps the track as it is instead of failing the whole playlist
-				const maxItem = await mediaItem.max().catch(trace.err.withContext("max", mediaItem.id));
+				const maxItem = await getMaxItemQuiet(mediaItem).catch(trace.err.withContext("getMaxItemQuiet", mediaItem.id));
 				if (!maxItem) mediaItems.push(mediaItem);
 				else {
 					mediaItems.push(maxItem);
 					replacements++;
-					trace.log(`Found Max replacement for ${maxItem.tidalItem.title}!`);
 				}
 				maxButton.text = `RealMAX ${mediaItems.length}/${itemCount} done. Found ${replacements} replacements`;
 			}
