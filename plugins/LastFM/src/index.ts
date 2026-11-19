@@ -32,12 +32,13 @@ export { Settings } from "./Settings";
 export const unloads = new Set<LunaUnload>();
 
 // Playback controlled from another device via DesktopConnect can be scrobbled by that device
-const remoteSessionActive = () => {
-	const desktopConnect = LunaPlugin.getByName("DesktopConnect")?.exports as { isRemoteSessionActive?: () => boolean } | undefined;
-	return desktopConnect?.isRemoteSessionActive?.() === true;
-};
-// Plays started during a remote session per track, checked when they are scrobbled (after the next transition)
+type DesktopConnectExports = { isRemoteSessionActive?: () => boolean };
+const remoteSessionActive = () =>
+	LunaPlugin.getAllByName("DesktopConnect").some((plugin) => (plugin.exports as DesktopConnectExports | undefined)?.isRemoteSessionActive?.());
+// Plays started during a remote session per track, checked when they are scrobbled (after the next transition).
+// Only the current and previous track can still be scrobbled, older entries are dropped on transition.
 const remotePlays = new Map<MediaItem["id"], number>();
+let previousId: MediaItem["id"] | undefined;
 const isRemotePlay = (id: MediaItem["id"]) => {
 	const plays = remotePlays.get(id);
 	if (plays === undefined) return false;
@@ -48,7 +49,12 @@ const isRemotePlay = (id: MediaItem["id"]) => {
 
 unloads.add(
 	MediaItem.onMediaTransition(unloads, (mediaItem) => {
-		if (storage.ignoreDesktopConnect && remoteSessionActive()) return remotePlays.set(mediaItem.id, (remotePlays.get(mediaItem.id) ?? 0) + 1);
+		for (const id of remotePlays.keys()) if (id !== previousId && id !== mediaItem.id) remotePlays.delete(id);
+		previousId = mediaItem.id;
+		if (storage.ignoreDesktopConnect && remoteSessionActive()) {
+			remotePlays.set(mediaItem.id, (remotePlays.get(mediaItem.id) ?? 0) + 1);
+			return;
+		}
 		makeScrobbleOpts(mediaItem).then(LastFM.updateNowPlaying).catch(trace.msg.err.withContext(`Failed to updateNowPlaying!`));
 	})
 );
