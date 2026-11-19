@@ -7,15 +7,22 @@ export * from "./remoteService.native";
 export const unloads = new Set<LunaUnload>();
 
 // #region From remote
-ipcRenderer.on(unloads, "remote.desktop.notify.media.changed", async ({ mediaId }) => {
+const loadRemoteMedia = async (mediaId: string) => {
 	const mediaItem = await MediaItem.fromId(mediaId);
-	if (mediaItem !== undefined) {
-		// Replace the local queue with only this item, otherwise Tidal moves on to its own next queue item
-		// when the track ends (without ENDED), so the remote is never told and the desktop plays a track the remote does not know about
-		redux.actions["playQueue/ADD_NOW"]({ context: { type: "UNKNOWN" }, mediaItemIds: [mediaItem.id] });
-		PlayState.play();
-	}
+	if (mediaItem === undefined) return false;
+	// Replace the local queue with only this item, otherwise Tidal moves on to its own next queue item
+	// when the track ends (without ENDED), so the remote is never told and the desktop plays a track the remote does not know about
+	redux.actions["playQueue/ADD_NOW"]({ context: { type: "UNKNOWN" }, mediaItemIds: [mediaItem.id] });
+	return true;
+};
+ipcRenderer.on(unloads, "remote.desktop.notify.media.changed", async ({ mediaId }) => {
+	if (await loadRemoteMedia(mediaId)) PlayState.play();
 	send({ command: "onRequestNextMedia", type: "media" });
+});
+// Newer remotes (Tidal Android) send prepare instead of notifyMediaChanged and no session state, then seek and play
+ipcRenderer.on(unloads, "remote.desktop.play.media", async ({ mediaId }) => {
+	startSession();
+	await loadRemoteMedia(mediaId);
 });
 ipcRenderer.on(unloads, "remote.desktop.prefetch", ({ mediaId, mediaType }) => {
 	redux.actions["player/PRELOAD_ITEM"]({ productId: mediaId, productType: mediaType === 0 ? "track" : "video" });
@@ -37,7 +44,15 @@ ipcRenderer.on(unloads, "remote.destop.set.volume.mute", ({ level, mute }: { lev
 // Using send from remoteService.native as its more consistent
 const sessionUnloads = new Set<LunaUnload>();
 ipcRenderer.on(unloads, "remote.desktop.notify.session.state", (state) => {
-	if (state === 0) unloadSet(sessionUnloads);
+	if (state === 0) return unloadSet(sessionUnloads);
+	startSession();
+});
+// Newer remotes only send stop when they disconnect, so end the session there too or the intercepts keep blocking local playback
+ipcRenderer.on(unloads, "remote.desktop.stop", () => {
+	PlayState.pause();
+	unloadSet(sessionUnloads);
+});
+function startSession() {
 	if (sessionUnloads.size !== 0) return;
 	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
 		send({
@@ -69,6 +84,6 @@ ipcRenderer.on(unloads, "remote.desktop.notify.session.state", (state) => {
 		send({ command: "onPlaybackCompleted", hasNextMedia: false, type: "media" });
 		return true;
 	});
-});
+}
 unloads.add(() => unloadSet(sessionUnloads));
 // #endregion
