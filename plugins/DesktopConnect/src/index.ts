@@ -34,7 +34,7 @@ const sessionUnloads = new Set<LunaUnload>();
 /** True while another device controls playback, used by other plugins (e.g. LastFM) */
 export const isRemoteSessionActive = () => sessionUnloads.size !== 0;
 ipcRenderer.on(unloads, "remote.desktop.notify.session.state", (state) => {
-	if (state === 0) return unloadSet(sessionUnloads);
+	if (state === 0) unloadSet(sessionUnloads);
 	if (sessionUnloads.size !== 0) return;
 	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
 		send({
