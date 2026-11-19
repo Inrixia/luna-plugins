@@ -227,7 +227,9 @@ function endRemoteMedia() {
 }
 // Tidal reports PLAYING before the video element starts and then starts it from the beginning,
 // so seek once the element really plays
+let seekingVideo = false;
 function seekWhenVideoPlays(time: number) {
+	seekingVideo = true;
 	const onPlaying = () => {
 		sessionUnloads.delete(stopWaiting);
 		stopWaiting();
@@ -235,6 +237,7 @@ function seekWhenVideoPlays(time: number) {
 	};
 	// Media events don't bubble, capture them on the document
 	const stopWaiting = () => {
+		seekingVideo = false;
 		clearTimeout(timeout);
 		document.removeEventListener("playing", onPlaying, true);
 	};
@@ -247,14 +250,21 @@ function seekWhenVideoPlays(time: number) {
 }
 function startSession() {
 	if (sessionUnloads.size !== 0) return;
-	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
+	const sendProgress = (time: number) =>
 		send({
 			command: "onProgressUpdated",
 			duration: 0,
 			progress: time * 1000,
 			type: "media",
 		});
-	});
+	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => sendProgress(time));
+	// Tidal sends no player signal for videos, so their progress comes from the video element (media events don't bubble)
+	const onVideoTime = ({ target }: Event) => {
+		// Not the start Tidal loads it at before the remote's seek is applied
+		if (target instanceof HTMLVideoElement && !unstartedVideo && !seekingVideo) sendProgress(target.currentTime);
+	};
+	document.addEventListener("timeupdate", onVideoTime, true);
+	sessionUnloads.add(() => document.removeEventListener("timeupdate", onVideoTime, true));
 	redux.intercept("playbackControls/SET_PLAYBACK_STATE", sessionUnloads, (state) => {
 		if (state === "PLAYING") {
 			paused = false;
