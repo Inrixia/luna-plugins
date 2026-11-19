@@ -35,9 +35,9 @@ let loadedMedia: { mediaId: string; uid: string } | undefined;
 // Set when the remote's media could not be loaded, so its seek and play do not apply to the previous track
 let loadFailed = false;
 // Tidal ignores a seek on a video it has not started yet (it loads it again on play and starts from the beginning),
-// so the remote's seek is applied again once the video plays
-let unstartedVideo = false;
-let videoSeek: number | undefined;
+// and sometimes does the same for a track loaded right after a video, so the remote's seek is applied again once it plays
+let unstarted = false;
+let remoteSeek: number | undefined;
 const currentElement = () => PlayState.playQueue.elements[PlayState.playQueue.currentIndex];
 // Tidal may play another id than the queued one (a newer version of the track), so compare the queue element
 const isLoaded = (mediaId: string) => loadedMedia?.mediaId === mediaId && currentElement()?.uid === loadedMedia.uid;
@@ -54,9 +54,9 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
 		return false;
 	}
 	paused = true;
-	unstartedVideo = mediaType === 1;
-	videoSeek = undefined;
-	stopVideoSeek?.();
+	unstarted = true;
+	remoteSeek = undefined;
+	stopPendingSeek?.();
 	// Replace the local queue with only this item, otherwise Tidal moves on to its own next queue item
 	// when the track ends (without ENDED), so the remote is never told and the desktop plays a track the remote does not know about.
 	// Added to the emptied queue Tidal loads it without starting it and the remote sends play.
@@ -132,7 +132,7 @@ ipcRenderer.on(
 	"remote.desktop.seek",
 	inOrder((time: number) => {
 		if (loadFailed) return;
-		if (unstartedVideo) videoSeek = time / 1000;
+		if (unstarted) remoteSeek = time / 1000;
 		PlayState.seek(time / 1000);
 	}),
 );
@@ -223,31 +223,42 @@ function endRemoteMedia() {
 	loadedMedia = undefined;
 	loadFailed = false;
 	paused = false;
-	unstartedVideo = false;
-	videoSeek = undefined;
+	unstarted = false;
+	remoteSeek = undefined;
 }
 // Set while the media playing is a video (Tidal also has other video elements, animated covers)
 let playingVideo = false;
-// Tidal reports PLAYING before the video element starts and then starts it from the beginning,
-// so seek once the element really plays. Only one seek waits, a newer one or a new load replaces it
-let stopVideoSeek: (() => void) | undefined;
-function seekWhenVideoPlays(time: number) {
-	stopVideoSeek?.();
-	const onPlaying = ({ target }: Event) => {
-		if (!(target instanceof HTMLVideoElement) || !playingVideo) return;
-		stop();
-		PlayState.seek(time);
-	};
+// Only one seek waits, a newer one or a new load replaces it
+let stopPendingSeek: (() => void) | undefined;
+function seekWhenPlaying(time: number) {
+	stopPendingSeek?.();
+	const waitUnloads = new Set<LunaUnload>();
+	if (playingVideo) {
+		// Tidal reports PLAYING before the video element starts and then starts it from the beginning,
+		// so seek once the element really plays
+		const onPlaying = ({ target }: Event) => {
+			if (!(target instanceof HTMLVideoElement) || !playingVideo) return;
+			stop();
+			PlayState.seek(time);
+		};
+		// Media events don't bubble, capture them on the document
+		document.addEventListener("playing", onPlaying, true);
+		waitUnloads.add(() => document.removeEventListener("playing", onPlaying, true));
+	} else {
+		// A track Tidal loads again on play starts from the beginning, seek again if its first position is not the remote's
+		ipcRenderer.on(waitUnloads, "client.playback.playersignal", ({ time: position }: { time: number }) => {
+			stop();
+			if (Math.abs(position - time) > 2) PlayState.seek(time);
+		});
+	}
 	const timeout = window.setTimeout(() => stop(), loadTimeoutMs);
-	// Media events don't bubble, capture them on the document
-	document.addEventListener("playing", onPlaying, true);
 	const stop = () => {
 		clearTimeout(timeout);
-		document.removeEventListener("playing", onPlaying, true);
+		unloadSet(waitUnloads);
 		sessionUnloads.delete(stop);
-		if (stopVideoSeek === stop) stopVideoSeek = undefined;
+		if (stopPendingSeek === stop) stopPendingSeek = undefined;
 	};
-	stopVideoSeek = stop;
+	stopPendingSeek = stop;
 	sessionUnloads.add(stop);
 }
 function startSession() {
@@ -264,7 +275,7 @@ function startSession() {
 	const onVideoTime = ({ target }: Event) => {
 		if (!(target instanceof HTMLVideoElement) || !playingVideo) return;
 		// Not the start Tidal loads it at before the remote's seek is applied
-		if (!unstartedVideo && stopVideoSeek === undefined) sendProgress(target.currentTime);
+		if (!unstarted && stopPendingSeek === undefined) sendProgress(target.currentTime);
 	};
 	document.addEventListener("timeupdate", onVideoTime, true);
 	sessionUnloads.add(() => document.removeEventListener("timeupdate", onVideoTime, true));
@@ -274,11 +285,11 @@ function startSession() {
 	redux.intercept("playbackControls/SET_PLAYBACK_STATE", sessionUnloads, (state) => {
 		if (state === "PLAYING") {
 			paused = false;
-			if (unstartedVideo) {
-				const time = videoSeek;
-				unstartedVideo = false;
-				videoSeek = undefined;
-				if (time !== undefined) seekWhenVideoPlays(time);
+			if (unstarted) {
+				const time = remoteSeek;
+				unstarted = false;
+				remoteSeek = undefined;
+				if (time !== undefined) seekWhenPlaying(time);
 			}
 		}
 		switch (state) {
