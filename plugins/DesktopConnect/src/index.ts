@@ -40,23 +40,21 @@ const holdPause = (hold: boolean) => {
 	clearTimeout(pauseTimeout);
 	if (hold) pauseTimeout = setTimeout(() => (pauseWhenPlaying = false), loadTimeoutMs);
 };
-// Tidal Android sends notifyMediaChanged and then prepare for the same media in one burst, load it only once
-let lastLoad: { mediaId: string; at: number } | undefined;
+// The media the remote last loaded, until it sends stop (before it changes the media or disconnects).
+// Tidal Android sends notifyMediaChanged and then prepare for the same media, it is loaded only once
+let loadedMedia: string | undefined;
+// Set when the remote's media could not be loaded, so its seek and play do not apply to the previous track
+let loadFailed = false;
+const isLoaded = (mediaId: string) => loadedMedia === mediaId && String(PlayState.playbackContext?.actualProductId) === mediaId;
 const loadRemoteMedia = async (mediaId: string, mediaType?: number, paused = false) => {
-	if (lastLoad?.mediaId === mediaId && Date.now() - lastLoad.at < 2000) {
-		// Same as a pause: the remote sends play after it when it is playing
-		if (paused) {
-			PlayState.pause();
-			holdPause(loadingMedia);
-		}
-		return true;
-	}
 	// A hanging request must not hold up the remote's other commands (pause, stop) behind it
-	const mediaItem = await Promise.race([
-		MediaItem.fromId(mediaId, mediaType === 1 ? "video" : "track"),
-		new Promise<undefined>((resolve) => setTimeout(resolve, loadTimeoutMs)),
-	]);
-	if (mediaItem === undefined) return false;
+	const mediaItem = await withTimeout(MediaItem.fromId(mediaId, mediaType === 1 ? "video" : "track"), loadTimeoutMs);
+	loadFailed = mediaItem === undefined;
+	if (mediaItem === undefined) {
+		PlayState.pause();
+		send({ command: "onStatusUpdated", playerState: "idle", type: "media" });
+		return false;
+	}
 	loadingMedia = true;
 	clearTimeout(loadingTimeout);
 	loadingTimeout = setTimeout(() => (loadingMedia = false), loadTimeoutMs);
@@ -67,48 +65,57 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number, paused = fal
 	const loaded = nextAction("playbackControls/MEDIA_PRODUCT_TRANSITION", loadTimeoutMs);
 	redux.actions["playQueue/ADD_NOW"]({ context: { type: "UNKNOWN" }, mediaItemIds: [mediaItem.tidalItem?.id ?? mediaItem.id] });
 	startSession();
-	// The next commands (seek) must apply to the new item, so wait until Tidal switched to it
-	await loaded;
-	lastLoad = { mediaId, at: Date.now() };
+	// The next commands (seek) must apply to the new item, so wait until Tidal switched to it.
+	// If it did not switch, a prepare sent again loads it again
+	if ((await loaded) !== undefined) loadedMedia = mediaId;
 	return true;
 };
-// Resolves with the next payload of the action, or undefined after a timeout
-const nextAction = <T extends redux.ActionType>(actionType: T, timeoutMs: number) => {
-	const waitUnloads = new Set<LunaUnload>();
+// Resolves undefined after the timeout
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number) => {
 	let timeout: number | undefined;
 	const timedOut = new Promise<undefined>((resolve) => {
 		timeout = window.setTimeout(resolve, timeoutMs);
 	});
-	return Promise.race([redux.interceptPromise(actionType, waitUnloads), timedOut]).finally(() => {
-		clearTimeout(timeout);
-		unloadSet(waitUnloads);
-	});
+	return Promise.race([promise, timedOut]).finally(() => clearTimeout(timeout));
+};
+// Resolves with the next payload of the action, or undefined after a timeout
+const nextAction = <T extends redux.ActionType>(actionType: T, timeoutMs: number) => {
+	const waitUnloads = new Set<LunaUnload>();
+	return withTimeout(redux.interceptPromise(actionType, waitUnloads), timeoutMs).finally(() => unloadSet(waitUnloads));
 };
 ipcRenderer.on(
 	unloads,
 	"remote.desktop.notify.media.changed",
-	inOrder(async ({ mediaId, mediaType }) => {
-		if (await loadRemoteMedia(mediaId, mediaType)) PlayState.play();
+	inOrder(async ({ mediaId, mediaType, itemId }) => {
+		// Newer remotes (Tidal Android, with an itemId) follow it with prepare and then play or pause,
+		// so it is loaded paused and the remote's play starts it, and sent again for the loaded media it is not reloaded
+		const newer = itemId !== undefined;
+		if (newer && isLoaded(mediaId)) return;
+		if ((await loadRemoteMedia(mediaId, mediaType, newer)) && !newer) PlayState.play();
 		send({ command: "onRequestNextMedia", type: "media" });
 	}),
 );
-// Newer remotes (Tidal Android) send prepare after notifyMediaChanged, then seek and play or pause.
 // Tidal starts playing the new item by itself, but a paused remote sends no play, so it stays paused until play
 ipcRenderer.on(
 	unloads,
 	"remote.desktop.play.media",
-	inOrder(({ mediaId, mediaType }) => loadRemoteMedia(mediaId, mediaType, true)),
+	inOrder(({ mediaId, mediaType }) => {
+		if (!isLoaded(mediaId)) return loadRemoteMedia(mediaId, mediaType, true);
+		// Already loaded by notifyMediaChanged, same as a pause: the remote sends play after it when it is playing
+		PlayState.pause();
+		holdPause(loadingMedia);
+	}),
 );
 ipcRenderer.on(unloads, "remote.desktop.prefetch", ({ mediaId, mediaType }) => {
 	redux.actions["player/PRELOAD_ITEM"]({ productId: mediaId, productType: mediaType === 0 ? "track" : "video" });
 });
-ipcRenderer.on(unloads, "remote.desktop.seek", inOrder((time: number) => PlayState.seek(time / 1000)));
+ipcRenderer.on(unloads, "remote.desktop.seek", inOrder((time: number) => !loadFailed && PlayState.seek(time / 1000)));
 ipcRenderer.on(
 	unloads,
 	"remote.desktop.play",
 	inOrder(() => {
 		holdPause(false);
-		PlayState.play();
+		if (!loadFailed) PlayState.play();
 	}),
 );
 ipcRenderer.on(
@@ -137,7 +144,10 @@ ipcRenderer.on(
 	unloads,
 	"remote.desktop.notify.session.state",
 	inOrder((state: number) => {
-		if (state === 0) return unloadSet(sessionUnloads);
+		if (state === 0) {
+			loadedMedia = undefined;
+			return unloadSet(sessionUnloads);
+		}
 		startSession();
 	}),
 );
@@ -147,6 +157,7 @@ ipcRenderer.on(
 	unloads,
 	"remote.desktop.stop",
 	inOrder(() => {
+		loadedMedia = undefined;
 		if (sessionUnloads.size === 0) return;
 		PlayState.pause();
 		unloadSet(sessionUnloads);
