@@ -92,7 +92,8 @@ const download = async (button: typeof downloadButton, mediaItems: AsyncIterable
 export { Settings } from "./Settings";
 ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 	const trackCount = await mediaCollection.count();
-	if (trackCount === 0) return;
+	// A menu closed before its track count arrived (TIDAL removes it on close) must not take the button from a newer one
+	if (trackCount === 0 || !contextMenu.isConnected) return;
 
 	for (const button of [downloadButton, albumsButton]) {
 		button.onClick(async () => {
