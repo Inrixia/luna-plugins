@@ -32,12 +32,13 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			downloadButton.text = `Stopping...`;
 			return;
 		}
-		const downloadFolder = settings.defaultPath ?? (trackCount > 1 ? await getDownloadFolder() : undefined);
+		// Set before the folder dialog so a second click can't start another download meanwhile
 		downloadState.active = true;
 		downloadState.cancel = false;
 		downloadButton.elem.classList.add("download-button");
 		// Keep showing that a stop was requested until the current track is done
 		const setStatus = (text: string) => (downloadButton.text = downloadState.cancel ? `Stopping...` : text);
+		let downloadFolder = settings.defaultPath;
 		// Returns undefined if the save dialog was cancelled
 		const getPath = async (mediaItem: MediaItem, pickedPath?: string | string[]) => {
 			// Don't show the previous track's progress while this one is prepared
@@ -47,7 +48,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			setStatus(`Fetching download path...`);
 			if (downloadFolder !== undefined) return [downloadFolder, fileName];
 			// A retry of the same track keeps the path picked in the save dialog, with this version's extension
-			if (typeof pickedPath === "string") return pickedPath.replace(/\.[^.\\/]*$/, "") + fileName.slice(fileName.lastIndexOf("."));
+			if (typeof pickedPath === "string") return pickedPath.replace(/\.(flac|m4a)$/i, "") + fileName.slice(fileName.lastIndexOf("."));
 			return getDownloadPath(fileName);
 		};
 		const save = async (mediaItem: MediaItem, path: string | string[]) => {
@@ -78,52 +79,56 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			}
 		};
 		const failed: string[] = [];
-		let tried = 0;
+		let downloaded = 0;
 		try {
-			try {
-				for await (const original of await mediaCollection.mediaItems()) {
-					if (downloadState.cancel) break;
-					tried++;
-					const title = original.tidalItem.title ?? `${original.id}`;
-					// Note a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
-					try {
-						let mediaItem = original;
-						if (settings.useRealMAX) {
-							setStatus(`Checking RealMax...`);
-							// If the lookup fails, download the track as it is
-							mediaItem = (await original.max().catch(trace.warn.withContext(`RealMax lookup failed for ${title}:`))) ?? original;
-						}
-						let path: string | string[] | undefined;
-						try {
-							path = await getPath(mediaItem);
-							// Cancelling the save dialog stops the download like the Stop click does
-							if (path === undefined) break;
-							await save(mediaItem, path);
-						} catch (err) {
-							if (mediaItem === original) throw err;
-							// The RealMax version can fail (e.g. be region-locked) while the original does not
-							trace.warn.withContext(`RealMax version of ${title} failed:`)(err);
-							// A stop requested meanwhile ends the download instead of retrying with the original
-							if (downloadState.cancel) break;
-							path = await getPath(original, path);
-							if (path === undefined) break;
-							await save(original, path);
-						}
-					} catch (err) {
-						const reason = String(err instanceof Error ? err.message : err);
-						failed.push(`${title} (${reason.length > 80 ? `${reason.slice(0, 77)}...` : reason})`);
-						trace.err.withContext(`Failed to download ${title}:`)(err);
+			if (downloadFolder === undefined && trackCount > 1) {
+				downloadFolder = await getDownloadFolder();
+				// Cancelling the folder dialog cancels the download
+				if (downloadFolder === undefined) return;
+			}
+			for await (const original of await mediaCollection.mediaItems()) {
+				if (downloadState.cancel) break;
+				const title = original.tidalItem.title ?? `${original.id}`;
+				// Note a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
+				try {
+					let mediaItem = original;
+					if (settings.useRealMAX) {
+						setStatus(`Checking RealMax...`);
+						// If the lookup fails, download the track as it is
+						mediaItem = (await original.max().catch(trace.warn.withContext(`RealMax lookup failed for ${title}:`))) ?? original;
 					}
+					let path: string | string[] | undefined;
+					try {
+						path = await getPath(mediaItem);
+						// Cancelling the save dialog stops the download like the Stop click does
+						if (path === undefined) break;
+						await save(mediaItem, path);
+					} catch (err) {
+						if (mediaItem === original) throw err;
+						// The RealMax version can fail (e.g. be region-locked) while the original does not
+						trace.warn.withContext(`RealMax version of ${title} failed:`)(err);
+						// A stop requested meanwhile ends the download instead of retrying with the original
+						if (downloadState.cancel) break;
+						path = await getPath(original, path);
+						if (path === undefined) break;
+						await save(original, path);
+					}
+					downloaded++;
+				} catch (err) {
+					const reason = String(err instanceof Error ? err.message : err);
+					failed.push(`${title} (${reason.length > 80 ? `${reason.slice(0, 77)}...` : reason})`);
+					trace.err.withContext(`Failed to download ${title}:`)(err);
 				}
-			} catch (err) {
-				// Loading the next track of the collection failed, the remaining tracks can't be downloaded
-				trace.msg.err.withContext(`Download stopped, loading the tracks failed:`)(err);
 			}
-			if (failed.length !== 0) {
-				const shown = failed.slice(0, 5).join(", ") + (failed.length > 5 ? ` and ${failed.length - 5} more` : "");
-				trace.msg.err(`Failed to download ${failed.length} of ${tried} track${tried === 1 ? "" : "s"}: ${shown}`);
-			}
+		} catch (err) {
+			// Loading the next track of the collection failed, the remaining tracks can't be downloaded
+			trace.msg.err.withContext(`Download stopped, loading the tracks failed:`)(err);
 		} finally {
+			if (failed.length !== 0) {
+				const total = failed.length + downloaded;
+				const shown = failed.slice(0, 5).join(", ") + (failed.length > 5 ? ` and ${failed.length - 5} more` : "");
+				trace.msg.err(`Failed to download ${failed.length} of ${total} track${total === 1 ? "" : "s"}: ${shown}`);
+			}
 			downloadState.active = false;
 			downloadState.cancel = false;
 			downloadButton.text = downloadState.idleText;
