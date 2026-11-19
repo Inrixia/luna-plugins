@@ -133,6 +133,8 @@ ipcRenderer.on(
 	inOrder((time: number) => {
 		if (loadFailed) return;
 		if (unstarted) remoteSeek = time / 1000;
+		// Still starting, Tidal may reset it to the beginning, so this seek replaces the one waiting
+		else if (stopPendingSeek !== undefined) seekWhenPlaying(time / 1000);
 		PlayState.seek(time / 1000);
 	}),
 );
@@ -230,6 +232,8 @@ function endRemoteMedia() {
 let playingVideo = false;
 // Only one seek waits, a newer one or a new load replaces it
 let stopPendingSeek: (() => void) | undefined;
+// The position a starting track must not go back before
+let trackSeek: number | undefined;
 function seekWhenPlaying(time: number) {
 	stopPendingSeek?.();
 	const waitUnloads = new Set<LunaUnload>();
@@ -245,11 +249,20 @@ function seekWhenPlaying(time: number) {
 		document.addEventListener("playing", onPlaying, true);
 		waitUnloads.add(() => document.removeEventListener("playing", onPlaying, true));
 	} else {
-		// A track Tidal loads again on play starts from the beginning, seek again if its first position is not the remote's
+		// A track Tidal loads again on play starts from the beginning (sometimes more than once),
+		// so while it starts seek again whenever it is back before the remote's position
+		trackSeek = time;
+		let seekedAt = 0;
 		ipcRenderer.on(waitUnloads, "client.playback.playersignal", ({ time: position }: { time: number }) => {
-			stop();
-			if (Math.abs(position - time) > 2) PlayState.seek(time);
+			// The position is NaN until the track really started
+			if (trackSeek === undefined || !Number.isFinite(position)) return;
+			if (position >= trackSeek - 2) trackSeek = Math.max(trackSeek, position);
+			else if (Date.now() - seekedAt > 1000) {
+				seekedAt = Date.now();
+				PlayState.seek(trackSeek);
+			}
 		});
+		waitUnloads.add(() => (trackSeek = undefined));
 	}
 	const timeout = window.setTimeout(() => stop(), loadTimeoutMs);
 	const stop = () => {
@@ -270,7 +283,12 @@ function startSession() {
 			progress: time * 1000,
 			type: "media",
 		});
-	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => sendProgress(time));
+	// Not the start Tidal loads a track at again before the remote's seek is applied
+	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
+		if (Number.isFinite(time) && (trackSeek === undefined || time >= trackSeek - 2)) sendProgress(time);
+	});
+	// A seek on the desktop is newer than the remote's
+	redux.intercept("playbackControls/SEEK", sessionUnloads, () => stopPendingSeek?.());
 	// Tidal sends no player signal for videos, so their progress comes from the video element (media events don't bubble)
 	const onVideoTime = ({ target }: Event) => {
 		if (!(target instanceof HTMLVideoElement) || !playingVideo) return;
