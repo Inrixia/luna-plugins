@@ -82,7 +82,9 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		let downloaded = 0;
 		try {
 			if (downloadFolder === undefined && trackCount > 1) {
-				downloadFolder = await getDownloadFolder();
+				// A click while the dialog is open stops the download, so the button must not say "Download" meanwhile
+				setStatus(`Choosing download folder...`);
+				downloadFolder = await getDownloadFolder().catch(trace.msg.err.withContext(`Download cancelled, the folder dialog failed:`));
 				// Cancelling the folder dialog cancels the download
 				if (downloadFolder === undefined) return;
 			}
