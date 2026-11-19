@@ -25,18 +25,42 @@ const inOrder =
 // Tidal ignores pause while it is still loading an item and starts playing once loaded,
 // so a pause from the remote in that time is applied when it starts playing
 let loadingMedia = false;
-let pauseWhenLoaded = false;
 let loadingTimeout: ReturnType<typeof setTimeout> | undefined;
-unloads.add(() => clearTimeout(loadingTimeout));
+let pauseWhenPlaying = false;
+let pauseTimeout: ReturnType<typeof setTimeout> | undefined;
+unloads.add(() => {
+	clearTimeout(loadingTimeout);
+	clearTimeout(pauseTimeout);
+});
 // Loading a video can take over 5s
 const loadTimeoutMs = 10000;
+// Only for the next few seconds, so a later local play is not paused
+const holdPause = (hold: boolean) => {
+	pauseWhenPlaying = hold;
+	clearTimeout(pauseTimeout);
+	if (hold) pauseTimeout = setTimeout(() => (pauseWhenPlaying = false), loadTimeoutMs);
+};
+// Tidal Android sends notifyMediaChanged and then prepare for the same media in one burst, load it only once
+let lastLoad: { mediaId: string; at: number } | undefined;
 const loadRemoteMedia = async (mediaId: string, mediaType?: number, paused = false) => {
-	const mediaItem = await MediaItem.fromId(mediaId, mediaType === 1 ? "video" : "track");
+	if (lastLoad?.mediaId === mediaId && Date.now() - lastLoad.at < 2000) {
+		// Same as a pause: the remote sends play after it when it is playing
+		if (paused) {
+			PlayState.pause();
+			holdPause(loadingMedia);
+		}
+		return true;
+	}
+	// A hanging request must not hold up the remote's other commands (pause, stop) behind it
+	const mediaItem = await Promise.race([
+		MediaItem.fromId(mediaId, mediaType === 1 ? "video" : "track"),
+		new Promise<undefined>((resolve) => setTimeout(resolve, loadTimeoutMs)),
+	]);
 	if (mediaItem === undefined) return false;
 	loadingMedia = true;
-	pauseWhenLoaded = paused;
 	clearTimeout(loadingTimeout);
 	loadingTimeout = setTimeout(() => (loadingMedia = false), loadTimeoutMs);
+	holdPause(paused);
 	// Replace the local queue with only this item, otherwise Tidal moves on to its own next queue item
 	// when the track ends (without ENDED), so the remote is never told and the desktop plays a track the remote does not know about.
 	// The remote sends the id as a string, Tidal keeps the item's own (number) id in its queue
@@ -45,6 +69,7 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number, paused = fal
 	startSession();
 	// The next commands (seek) must apply to the new item, so wait until Tidal switched to it
 	await loaded;
+	lastLoad = { mediaId, at: Date.now() };
 	return true;
 };
 // Resolves with the next payload of the action, or undefined after a timeout
@@ -67,7 +92,7 @@ ipcRenderer.on(
 		send({ command: "onRequestNextMedia", type: "media" });
 	}),
 );
-// Newer remotes (Tidal Android) send prepare instead of notifyMediaChanged and no session state, then seek and play.
+// Newer remotes (Tidal Android) send prepare after notifyMediaChanged, then seek and play or pause.
 // Tidal starts playing the new item by itself, but a paused remote sends no play, so it stays paused until play
 ipcRenderer.on(
 	unloads,
@@ -82,7 +107,7 @@ ipcRenderer.on(
 	unloads,
 	"remote.desktop.play",
 	inOrder(() => {
-		pauseWhenLoaded = false;
+		holdPause(false);
 		PlayState.play();
 	}),
 );
@@ -91,7 +116,7 @@ ipcRenderer.on(
 	"remote.desktop.pause",
 	inOrder(() => {
 		PlayState.pause();
-		pauseWhenLoaded = loadingMedia;
+		holdPause(loadingMedia);
 	}),
 );
 ipcRenderer.on(unloads, "remote.desktop.set.shuffle", PlayState.setShuffle.bind(PlayState));
@@ -116,7 +141,8 @@ ipcRenderer.on(
 		startSession();
 	}),
 );
-// Newer remotes only send stop when they disconnect, so end the session there too or the intercepts keep blocking local playback
+// Newer remotes send stop before changing the media and when they disconnect (before session state 0),
+// end the session there too or the intercepts keep blocking local playback if session state never comes
 ipcRenderer.on(
 	unloads,
 	"remote.desktop.stop",
@@ -139,8 +165,8 @@ function startSession() {
 	redux.intercept("playbackControls/SET_PLAYBACK_STATE", sessionUnloads, (state) => {
 		if (state === "PLAYING") {
 			loadingMedia = false;
-			if (pauseWhenLoaded) {
-				pauseWhenLoaded = false;
+			if (pauseWhenPlaying) {
+				holdPause(false);
 				setTimeout(() => PlayState.pause());
 			}
 		}
