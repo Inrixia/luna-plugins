@@ -24,7 +24,10 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		try {
 			sourceTitle = await mediaCollection.title();
 			let replacements = 0;
+			// count() is the number of tracks (videos not included), so the progress counts tracks only
+			let tracksDone = 0;
 			for await (const mediaItem of await mediaCollection.mediaItems()) {
+				if (mediaItem.contentType === "track") tracksDone++;
 				// A failed lookup keeps the track as it is instead of failing the whole playlist
 				const maxItem = await getMaxItemQuiet(mediaItem).catch(trace.err.withContext("getMaxItemQuiet", mediaItem.id));
 				if (!maxItem) mediaItems.push(mediaItem);
@@ -32,7 +35,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 					mediaItems.push(maxItem);
 					replacements++;
 				}
-				maxButton.text = `RealMAX ${mediaItems.length}/${itemCount} done. Found ${replacements} replacements`;
+				maxButton.text = `RealMAX ${tracksDone}/${itemCount} done. Found ${replacements} replacements`;
 			}
 
 			if (replacements === 0) return trace.msg.err(`No replacements found for ${sourceTitle}`);
