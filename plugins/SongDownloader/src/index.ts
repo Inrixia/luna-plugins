@@ -1,5 +1,5 @@
 import { Tracer, type LunaUnload } from "@luna/core";
-import { ContextMenu, safeInterval, StyleTag } from "@luna/lib";
+import { ContextMenu, safeInterval, StyleTag, type MediaItem } from "@luna/lib";
 
 import { getDownloadFolder, getDownloadPath, getFileName } from "./helpers";
 import { settings } from "./Settings";
@@ -35,63 +35,71 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 		downloadButton.elem.classList.add("download-button");
 		// Keep showing that a stop was requested until the current track is done
 		const setStatus = (text: string) => (downloadButton.text = downloadState.cancel ? `Stopping...` : text);
+		// Returns false if the save dialog was cancelled
+		const downloadTrack = async (mediaItem: MediaItem) => {
+			// Don't show the previous track's progress while this one is prepared
+			downloadButton.elem?.style.removeProperty("--progress");
+			setStatus(`Fetching filename...`);
+			const fileName = await getFileName(mediaItem, settings.downloadQuality);
+
+			setStatus(`Fetching download path...`);
+			const path = downloadFolder !== undefined ? [downloadFolder, fileName] : await getDownloadPath(fileName);
+			if (path === undefined) return false;
+
+			setStatus(`Downloading...`);
+			let downloading = true;
+			const clearInterval = safeInterval(
+				unloads,
+				async () => {
+					const progress = await mediaItem.downloadProgress();
+					// A tick still waiting for the progress when the download ended must not overwrite the next track's state
+					if (!downloading || progress === undefined) return;
+					const { total, downloaded } = progress;
+					if (!total || downloaded === undefined) return;
+					const percent = (downloaded / total) * 100;
+					downloadButton.elem?.style.setProperty("--progress", `${percent}%`);
+					const downloadedMB = (downloaded / 1048576).toFixed(0);
+					const totalMB = (total / 1048576).toFixed(0);
+					setStatus(`Downloading... ${downloadedMB}/${totalMB}MB ${percent.toFixed(0)}%`);
+				},
+				50,
+			);
+			try {
+				await mediaItem.download(path, settings.downloadQuality);
+			} finally {
+				downloading = false;
+				clearInterval();
+				unloads.delete(clearInterval);
+			}
+			return true;
+		};
+		const failed: string[] = [];
 		try {
-			for await (let mediaItem of await mediaCollection.mediaItems()) {
+			for await (const original of await mediaCollection.mediaItems()) {
 				if (downloadState.cancel) break;
-				// Report a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
+				const title = original.tidalItem.title ?? `${original.id}`;
+				// Note a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
 				try {
-					// Don't show the previous track's progress while this one is prepared
-					downloadButton.elem?.style.removeProperty("--progress");
-					const original = mediaItem;
+					let mediaItem = original;
 					if (settings.useRealMAX) {
 						setStatus(`Checking RealMax...`);
 						// If the lookup fails, download the track as it is
-						mediaItem =
-							(await mediaItem.max().catch(trace.msg.warn.withContext(`RealMax lookup failed for ${mediaItem.tidalItem.title}:`))) ?? mediaItem;
+						mediaItem = (await original.max().catch(trace.warn.withContext(`RealMax lookup failed for ${title}:`))) ?? original;
 					}
-
-					setStatus(`Fetching filename...`);
-					const fileName = await getFileName(mediaItem, settings.downloadQuality).catch((err) => {
+					const saved = await downloadTrack(mediaItem).catch((err) => {
 						if (mediaItem === original) throw err;
-						// The RealMax version can be unavailable (e.g. region-locked) while the original is not
-						trace.msg.warn.withContext(`RealMax version of ${original.tidalItem.title} is unavailable, using the original:`)(err);
-						mediaItem = original;
-						return getFileName(mediaItem, settings.downloadQuality);
+						// The RealMax version can fail (e.g. be region-locked) while the original does not
+						trace.warn.withContext(`RealMax version of ${title} failed, using the original:`)(err);
+						return downloadTrack(original);
 					});
-
-					setStatus(`Fetching download path...`);
-					const path = downloadFolder !== undefined ? [downloadFolder, fileName] : await getDownloadPath(fileName);
-					if (path === undefined) return;
-
-					setStatus(`Downloading...`);
-					let downloading = true;
-					const clearInterval = safeInterval(
-						unloads,
-						async () => {
-							const progress = await mediaItem.downloadProgress();
-							// A tick still waiting for the progress when the download ended must not overwrite the next track's state
-							if (!downloading || progress === undefined) return;
-							const { total, downloaded } = progress;
-							if (!total || downloaded === undefined) return;
-							const percent = (downloaded / total) * 100;
-							downloadButton.elem!.style.setProperty("--progress", `${percent}%`);
-							const downloadedMB = (downloaded / 1048576).toFixed(0);
-							const totalMB = (total / 1048576).toFixed(0);
-							setStatus(`Downloading... ${downloadedMB}/${totalMB}MB ${percent.toFixed(0)}%`);
-						},
-						50,
-					);
-					try {
-						await mediaItem.download(path, settings.downloadQuality);
-					} finally {
-						downloading = false;
-						clearInterval();
-						unloads.delete(clearInterval);
-					}
+					// Cancelling the save dialog stops the download like the Stop click does
+					if (!saved) break;
 				} catch (err) {
-					trace.msg.err.withContext(`Failed to download ${mediaItem.tidalItem.title ?? mediaItem.id}:`)(err);
+					failed.push(title);
+					trace.err.withContext(`Failed to download ${title}:`)(err);
 				}
 			}
+			if (failed.length !== 0) trace.msg.err(`Failed to download ${failed.length} of ${trackCount} tracks: ${failed.join(", ")}`);
 		} finally {
 			downloadState.active = false;
 			downloadState.cancel = false;
