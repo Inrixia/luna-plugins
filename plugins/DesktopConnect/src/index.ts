@@ -53,9 +53,12 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
 	// Added to the emptied queue Tidal loads it without starting it and the remote sends play.
 	// ADD_NOW would start it (and Tidal ignores a pause while it is still loading),
 	// a queue RESET keeps the old audio when Tidal's saved player state has the same media
-	let uid: string | undefined;
-	// Only the switch to the added item, not a late one of the previous track
-	const loaded = nextAction("playbackControls/MEDIA_PRODUCT_TRANSITION", loadTimeoutMs, () => uid !== undefined && currentElement()?.uid === uid);
+	// Only the switch to the added item (its queue element), not a late one of the previous track
+	const loaded = nextAction(
+		"playbackControls/MEDIA_PRODUCT_TRANSITION",
+		loadTimeoutMs,
+		({ mediaProduct }) => mediaProduct.referenceId !== undefined && mediaProduct.referenceId === currentElement()?.uid,
+	);
 	// Clearing the queue also resets repeat and shuffle.
 	// Repeat one is not kept, the track would loop and the remote would never be told it ended
 	const { repeatMode, shuffleModeEnabled } = PlayState.playQueue;
@@ -67,8 +70,8 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
 	startSession();
 	// The next commands (seek) must apply to the new item, so wait until Tidal switched to it.
 	// If it did not switch, a prepare sent again loads it again
-	uid = currentElement()?.uid;
-	if ((await loaded) !== undefined && uid !== undefined) loadedMedia = { mediaId, uid };
+	const uid = (await loaded)?.mediaProduct.referenceId;
+	if (uid !== undefined) loadedMedia = { mediaId, uid };
 	return true;
 };
 // Resolves undefined after the timeout
@@ -118,12 +121,18 @@ ipcRenderer.on(unloads, "remote.desktop.seek", inOrder((time: number) => !loadFa
 // Tidal ignores a pause until it really started playing, so a pause or stop sent while it starts is applied again once it plays.
 // The commands after it do not wait for that, playback may never start
 let pauseWhenPlaying = false;
+// A play from anywhere (also on the desktop) is newer than the remote's pause
+redux.intercept("playbackControls/PLAY", unloads, () => {
+	pauseWhenPlaying = false;
+});
 const play = () => {
-	if (loadFailed || PlayState.playing) return;
+	if (loadFailed) return;
 	remotePaused = false;
 	pauseWhenPlaying = false;
+	// Tidal's desired state, it may not be playing yet
+	if (PlayState.playing) return;
 	nextAction("playbackControls/SET_PLAYBACK_STATE", loadTimeoutMs, (state) => state === "PLAYING").then((state) => {
-		if (state !== undefined && pauseWhenPlaying) PlayState.pause();
+		if (state !== undefined && pauseWhenPlaying && !unloaded) PlayState.pause();
 		pauseWhenPlaying = false;
 	});
 	PlayState.play();
@@ -166,10 +175,11 @@ ipcRenderer.on(
 	unloads,
 	"remote.desktop.stop",
 	inOrder(() => {
+		if (sessionUnloads.size !== 0) {
+			pause();
+			unloadSet(sessionUnloads);
+		}
 		endRemoteMedia();
-		if (sessionUnloads.size === 0) return;
-		pause();
-		unloadSet(sessionUnloads);
 	}),
 );
 function endRemoteMedia() {
