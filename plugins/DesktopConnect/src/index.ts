@@ -253,14 +253,21 @@ function seekWhenPlaying(time: number) {
 		// so while it starts seek again whenever it is back before the remote's position
 		trackSeek = time;
 		let seekedAt = 0;
+		let reached = false;
 		ipcRenderer.on(waitUnloads, "client.playback.playersignal", ({ time: position }: { time: number }) => {
 			// The position is NaN until the track really started
 			if (trackSeek === undefined || !Number.isFinite(position)) return;
-			if (position >= trackSeek - 2) trackSeek = Math.max(trackSeek, position);
-			else if (Date.now() - seekedAt > 1000) {
+			if (position >= trackSeek - 2) {
+				reached = true;
+				trackSeek = Math.max(trackSeek, position);
+			} else if (Date.now() - seekedAt > 1000) {
 				seekedAt = Date.now();
 				PlayState.seek(trackSeek);
 			}
+		});
+		// Switching again after it played from there is the next play of it (repeat one) or another item, not a reset
+		redux.intercept("playbackControls/MEDIA_PRODUCT_TRANSITION", waitUnloads, () => {
+			if (reached) stop();
 		});
 		waitUnloads.add(() => (trackSeek = undefined));
 	}
