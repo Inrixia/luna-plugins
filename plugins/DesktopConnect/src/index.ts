@@ -1,20 +1,26 @@
-import { LunaUnload, unloadSet } from "@luna/core";
+import { LunaUnload, Tracer, unloadSet } from "@luna/core";
 import { ipcRenderer, MediaItem, PlayState, redux } from "@luna/lib";
 import { send } from "./remoteService.native";
 
 export * from "./remoteService.native";
 
 export const unloads = new Set<LunaUnload>();
+export const { trace } = Tracer("[DesktopConnect]");
 
 // #region From remote
 // Remote commands come in bursts (prepare, seek and play at once) and loading the media is async,
 // so run them one after another, otherwise seek, play or pause apply to the previous track or in the wrong order
 let remoteCommands: Promise<unknown> = Promise.resolve();
+// Commands still queued when the plugin unloads must not run (they would start a session nothing unloads)
+let unloaded = false;
+unloads.add(() => (unloaded = true));
 const inOrder =
 	<A extends unknown[]>(handler: (...args: A) => unknown) =>
 	(...args: A) => {
-		// A failed command must not block the ones after it
-		remoteCommands = remoteCommands.then(() => handler(...args)).catch(() => {});
+		remoteCommands = remoteCommands
+			.then(() => (unloaded ? undefined : handler(...args)))
+			// A failed command must not block the ones after it
+			.catch(trace.err.withContext("remote command"));
 	};
 // Tidal ignores pause while it is still loading an item and starts playing once loaded,
 // so a pause from the remote in that time is applied when it starts playing
@@ -22,17 +28,19 @@ let loadingMedia = false;
 let pauseWhenLoaded = false;
 let loadingTimeout: ReturnType<typeof setTimeout> | undefined;
 unloads.add(() => clearTimeout(loadingTimeout));
-const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
+// Loading a video can take over 5s
+const loadTimeoutMs = 10000;
+const loadRemoteMedia = async (mediaId: string, mediaType?: number, paused = false) => {
 	const mediaItem = await MediaItem.fromId(mediaId, mediaType === 1 ? "video" : "track");
 	if (mediaItem === undefined) return false;
 	loadingMedia = true;
-	pauseWhenLoaded = false;
+	pauseWhenLoaded = paused;
 	clearTimeout(loadingTimeout);
-	loadingTimeout = setTimeout(() => (loadingMedia = false), 5000);
+	loadingTimeout = setTimeout(() => (loadingMedia = false), loadTimeoutMs);
 	// Replace the local queue with only this item, otherwise Tidal moves on to its own next queue item
 	// when the track ends (without ENDED), so the remote is never told and the desktop plays a track the remote does not know about.
 	// The remote sends the id as a string, Tidal keeps the item's own (number) id in its queue
-	const loaded = nextAction("playbackControls/MEDIA_PRODUCT_TRANSITION");
+	const loaded = nextAction("playbackControls/MEDIA_PRODUCT_TRANSITION", loadTimeoutMs);
 	redux.actions["playQueue/ADD_NOW"]({ context: { type: "UNKNOWN" }, mediaItemIds: [mediaItem.tidalItem?.id ?? mediaItem.id] });
 	startSession();
 	// The next commands (seek) must apply to the new item, so wait until Tidal switched to it
@@ -40,11 +48,16 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
 	return true;
 };
 // Resolves with the next payload of the action, or undefined after a timeout
-const nextAction = <T extends redux.ActionType>(actionType: T, timeoutMs = 5000) => {
+const nextAction = <T extends redux.ActionType>(actionType: T, timeoutMs: number) => {
 	const waitUnloads = new Set<LunaUnload>();
-	return Promise.race([redux.interceptPromise(actionType, waitUnloads), new Promise<undefined>((resolve) => setTimeout(resolve, timeoutMs))]).finally(() =>
-		unloadSet(waitUnloads),
-	);
+	let timeout: number | undefined;
+	const timedOut = new Promise<undefined>((resolve) => {
+		timeout = window.setTimeout(resolve, timeoutMs);
+	});
+	return Promise.race([redux.interceptPromise(actionType, waitUnloads), timedOut]).finally(() => {
+		clearTimeout(timeout);
+		unloadSet(waitUnloads);
+	});
 };
 ipcRenderer.on(
 	unloads,
@@ -54,11 +67,12 @@ ipcRenderer.on(
 		send({ command: "onRequestNextMedia", type: "media" });
 	}),
 );
-// Newer remotes (Tidal Android) send prepare instead of notifyMediaChanged and no session state, then seek and play
+// Newer remotes (Tidal Android) send prepare instead of notifyMediaChanged and no session state, then seek and play.
+// Tidal starts playing the new item by itself, but a paused remote sends no play, so it stays paused until play
 ipcRenderer.on(
 	unloads,
 	"remote.desktop.play.media",
-	inOrder(({ mediaId, mediaType }) => loadRemoteMedia(mediaId, mediaType)),
+	inOrder(({ mediaId, mediaType }) => loadRemoteMedia(mediaId, mediaType, true)),
 );
 ipcRenderer.on(unloads, "remote.desktop.prefetch", ({ mediaId, mediaType }) => {
 	redux.actions["player/PRELOAD_ITEM"]({ productId: mediaId, productType: mediaType === 0 ? "track" : "video" });
@@ -93,10 +107,15 @@ ipcRenderer.on(unloads, "remote.destop.set.volume.mute", ({ level, mute }: { lev
 // #region To remote
 // Using send from remoteService.native as its more consistent
 const sessionUnloads = new Set<LunaUnload>();
-ipcRenderer.on(unloads, "remote.desktop.notify.session.state", (state) => {
-	if (state === 0) return unloadSet(sessionUnloads);
-	startSession();
-});
+// In order with the other commands, so a media load still running does not start the session again after it ended
+ipcRenderer.on(
+	unloads,
+	"remote.desktop.notify.session.state",
+	inOrder((state: number) => {
+		if (state === 0) return unloadSet(sessionUnloads);
+		startSession();
+	}),
+);
 // Newer remotes only send stop when they disconnect, so end the session there too or the intercepts keep blocking local playback
 ipcRenderer.on(
 	unloads,
