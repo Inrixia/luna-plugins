@@ -256,7 +256,8 @@ function seekWhenPlaying(time: number) {
 		let reached = false;
 		ipcRenderer.on(waitUnloads, "client.playback.playersignal", ({ time: position }: { time: number }) => {
 			// The position is NaN until the track really started
-			if (trackSeek === undefined || !Number.isFinite(position)) return;
+			// Far past it is not where it plays from (a late one of the previous track), a newer seek replaces or cancels this
+			if (trackSeek === undefined || !Number.isFinite(position) || position > trackSeek + 5) return;
 			if (position >= trackSeek - 2) {
 				reached = true;
 				trackSeek = Math.max(trackSeek, position);
