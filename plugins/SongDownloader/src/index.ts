@@ -42,11 +42,9 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 					downloadButton.elem?.style.removeProperty("--progress");
 					if (settings.useRealMAX) {
 						downloadButton.text = `Checking RealMax...`;
-						mediaItem = (await mediaItem.max()) ?? mediaItem;
+						// If the lookup fails, download the track as it is
+						mediaItem = (await mediaItem.max().catch(trace.warn.withContext("RealMax lookup failed"))) ?? mediaItem;
 					}
-
-					downloadButton.text = `Loading tags...`;
-					await mediaItem.flacTags();
 
 					downloadButton.text = `Fetching filename...`;
 					const fileName = await getFileName(mediaItem, settings.downloadQuality);
@@ -56,13 +54,15 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 					if (path === undefined) return;
 
 					downloadButton.text = `Downloading...`;
+					let downloading = true;
 					const clearInterval = safeInterval(
 						unloads,
 						async () => {
 							const progress = await mediaItem.downloadProgress();
-							if (progress === undefined) return;
+							// A tick still waiting for the progress when the download ended must not overwrite the next track's state
+							if (!downloading || progress === undefined) return;
 							const { total, downloaded } = progress;
-							if (total === undefined || downloaded === undefined) return;
+							if (!total || downloaded === undefined) return;
 							const percent = (downloaded / total) * 100;
 							downloadButton.elem!.style.setProperty("--progress", `${percent}%`);
 							const downloadedMB = (downloaded / 1048576).toFixed(0);
@@ -74,7 +74,9 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 					try {
 						await mediaItem.download(path, settings.downloadQuality);
 					} finally {
+						downloading = false;
 						clearInterval();
+						unloads.delete(clearInterval);
 					}
 				} catch (err) {
 					trace.msg.err.withContext(`Failed to download ${mediaItem.tidalItem.title ?? mediaItem.id}:`)(err);
