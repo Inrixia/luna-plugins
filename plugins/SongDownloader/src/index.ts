@@ -74,9 +74,11 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 			return true;
 		};
 		const failed: string[] = [];
+		let tried = 0;
 		try {
 			for await (const original of await mediaCollection.mediaItems()) {
 				if (downloadState.cancel) break;
+				tried++;
 				const title = original.tidalItem.title ?? `${original.id}`;
 				// Note a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
 				try {
@@ -99,7 +101,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 					trace.err.withContext(`Failed to download ${title}:`)(err);
 				}
 			}
-			if (failed.length !== 0) trace.msg.err(`Failed to download ${failed.length} of ${trackCount} tracks: ${failed.join(", ")}`);
+			if (failed.length !== 0) trace.msg.err(`Failed to download ${failed.length} of ${tried} tracks: ${failed.join(", ")}`);
 		} finally {
 			downloadState.active = false;
 			downloadState.cancel = false;
