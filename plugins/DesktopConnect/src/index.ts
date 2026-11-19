@@ -57,6 +57,8 @@ const loadRemoteMedia = async (mediaId: string, mediaType?: number) => {
 	unstarted = true;
 	remoteSeek = undefined;
 	stopPendingSeek?.();
+	// Set here too, the session's intercept that follows Tidal's switches is added only after the first load
+	playingVideo = mediaType === 1;
 	// Replace the local queue with only this item, otherwise Tidal moves on to its own next queue item
 	// when the track ends (without ENDED), so the remote is never told and the desktop plays a track the remote does not know about.
 	// Added to the emptied queue Tidal loads it without starting it and the remote sends play.
