@@ -295,8 +295,14 @@ function startSession() {
 	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
 		if (Number.isFinite(time) && (trackSeek === undefined || time >= trackSeek - 2)) sendProgress(time);
 	});
-	// A seek on the desktop is newer than the remote's
-	redux.intercept("playbackControls/SEEK", sessionUnloads, () => stopPendingSeek?.());
+	// A seek on the desktop (also back/forward and previous, which restarts the track) is newer than the remote's
+	const desktopSeeks = [
+		"playbackControls/SEEK",
+		"playbackControls/SEEK_BACKWARDS",
+		"playbackControls/SEEK_FORWARDS",
+		"playbackControls/SKIP_PREVIOUS",
+	] as const;
+	for (const action of desktopSeeks) redux.intercept(action, sessionUnloads, () => stopPendingSeek?.());
 	// Tidal sends no player signal for videos, so their progress comes from the video element (media events don't bubble)
 	const onVideoTime = ({ target }: Event) => {
 		if (!(target instanceof HTMLVideoElement) || !playingVideo) return;
