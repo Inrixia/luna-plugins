@@ -12,7 +12,9 @@ const onStalled = asyncDebounce(async () => {
 	if (mediaItem === undefined || kickCache.has(mediaItem.id)) return;
 	kickCache.add(mediaItem.id);
 	trace.msg.log(`Playback stalled... Kicking tidal CDN!`);
-	await voidTrack(await mediaItem?.playbackInfo()).catch(trace.err.withContext("voidTrack"));
+	const playbackInfo = await mediaItem.playbackInfo().catch(trace.err.withContext("playbackInfo"));
+	if (playbackInfo === undefined) return;
+	await voidTrack(playbackInfo).catch(trace.err.withContext("voidTrack"));
 });
 
 export const unloads = new Set<LunaUnload>();
