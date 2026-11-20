@@ -1,3 +1,4 @@
+import { rejectNotOk } from "@inrixia/helpers";
 import type { Payload } from "./ListenBrainzTypes";
 import { storage } from "./Settings";
 
@@ -14,7 +15,7 @@ export class ListenBrainz {
 			},
 			method: "POST",
 			body: JSON.stringify(body),
-		});
+		}).then(rejectNotOk);
 	}
 
 	public static updateNowPlaying(payload: NowPlayingPayload) {
