@@ -47,7 +47,8 @@ const download = async (button: typeof downloadButton, mediaItems: AsyncIterable
 	try {
 		for await (let mediaItem of mediaItems) {
 			if (downloadState.cancel) break;
-			if (settings.useRealMAX) {
+			// RealMAX only finds better versions of tracks
+			if (settings.useRealMAX && mediaItem.contentType === "track") {
 				button.text = `Checking RealMax...`;
 				mediaItem = (await mediaItem.max()) ?? mediaItem;
 			}
