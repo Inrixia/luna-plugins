@@ -105,7 +105,8 @@ const download = async (button: typeof downloadButton, mediaItems: AsyncIterable
 			// Note a track that fails (e.g. unavailable on TIDAL) and continue with the next one instead of stopping the whole download
 			try {
 				let mediaItem = original;
-				if (settings.useRealMAX) {
+				// RealMAX only finds better versions of tracks
+				if (settings.useRealMAX && original.contentType === "track") {
 					setStatus(`Checking RealMax...`);
 					// If the lookup fails, download the track as it is
 					mediaItem = (await original.max().catch(trace.warn.withContext(`RealMax lookup failed for ${title}:`))) ?? original;
