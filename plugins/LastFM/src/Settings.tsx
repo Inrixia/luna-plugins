@@ -1,4 +1,4 @@
-import { LunaButtonSetting, LunaSettings } from "@luna/ui";
+import { LunaButtonSetting, LunaSettings, LunaSwitchSetting } from "@luna/ui";
 import { errSignal, trace } from ".";
 import { LastFM, type LastFmSession } from "./LastFM";
 
@@ -8,11 +8,22 @@ import React from "react";
 
 export const storage = await ReactiveStore.getPluginStorage<{
 	session?: LastFmSession;
-}>("LastFM");
+	scrobbling: boolean;
+}>("LastFM", { scrobbling: true });
+
+/**
+ * Turns scrobbling and now playing updates on or off, eg for other plugins. Returns the previous value
+ */
+export const setScrobbling = (enabled: boolean) => {
+	const previous = storage.scrobbling;
+	storage.scrobbling = enabled;
+	return previous;
+};
 
 export const Settings = () => {
 	const [session, setSession] = React.useState(storage.session);
 	const [loading, setLoading] = React.useState(false);
+	const [scrobbling, setScrobblingState] = React.useState(storage.scrobbling);
 
 	const connected = session !== undefined;
 
@@ -37,6 +48,15 @@ export const Settings = () => {
 			>
 				{loading ? "Loading..." : connected ? "Reconnect" : "Connect"}
 			</LunaButtonSetting>
+			<LunaSwitchSetting
+				title="Scrobble"
+				desc="Scrobble and update now playing. Other plugins can turn this off, eg DesktopConnect while another device controls playback"
+				checked={scrobbling}
+				onChange={(_, checked) => {
+					setScrobbling(checked);
+					setScrobblingState(checked);
+				}}
+			/>
 		</LunaSettings>
 	);
 };

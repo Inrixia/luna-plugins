@@ -1,8 +1,10 @@
-import { LunaUnload, Tracer, unloadSet } from "@luna/core";
+import { LunaPlugin, LunaUnload, Tracer, unloadSet } from "@luna/core";
 import { ipcRenderer, MediaItem, PlayState, redux } from "@luna/lib";
 import { send } from "./remoteService.native";
+import { storage } from "./Settings";
 
 export * from "./remoteService.native";
+export { Settings } from "./Settings";
 
 export const unloads = new Set<LunaUnload>();
 export const { trace } = Tracer("[DesktopConnect]");
@@ -191,6 +193,34 @@ ipcRenderer.on(unloads, "remote.destop.set.volume.mute", ({ level, mute }: { lev
 });
 // #endregion
 
+// #region Scrobbling
+// The controlling device can scrobble itself, so scrobblers are turned off for the session and restored after
+type ScrobblerExports = { setScrobbling?: (enabled: boolean) => boolean };
+// Each scrobbler's setScrobbling with the value to restore, while scrobbling is paused
+const pausedScrobblers = new Map<string, { setScrobbling: (enabled: boolean) => boolean; previous: boolean }>();
+// A session ends on every remote media change too, so a restore waiting for the next transition is cancelled by a new session
+const restoreUnloads = new Set<LunaUnload>();
+const restoreScrobbling = () => {
+	unloadSet(restoreUnloads);
+	for (const { setScrobbling, previous } of pausedScrobblers.values()) setScrobbling(previous);
+	pausedScrobblers.clear();
+};
+const pauseScrobbling = (sessionUnloads: Set<LunaUnload>) => {
+	unloadSet(restoreUnloads);
+	for (const name of ["LastFM", "ListenBrainz"]) {
+		if (pausedScrobblers.has(name)) continue;
+		const setScrobbling = (LunaPlugin.getByName(name)?.exports as ScrobblerExports | undefined)?.setScrobbling;
+		if (setScrobbling === undefined) continue;
+		pausedScrobblers.set(name, { setScrobbling, previous: setScrobbling(false) });
+	}
+	// The last remote track is scrobbled on the next transition, after the session ended, so restore after that
+	sessionUnloads.add(() => {
+		if (pausedScrobblers.size !== 0) MediaItem.onMediaTransition(restoreUnloads, restoreScrobbling);
+	});
+};
+unloads.add(restoreScrobbling);
+// #endregion
+
 // #region To remote
 // Using send from remoteService.native as its more consistent
 const sessionUnloads = new Set<LunaUnload>();
@@ -286,6 +316,7 @@ function seekWhenPlaying(time: number) {
 }
 function startSession() {
 	if (sessionUnloads.size !== 0) return;
+	if (storage.pauseScrobbling) pauseScrobbling(sessionUnloads);
 	const sendProgress = (time: number) =>
 		send({
 			command: "onProgressUpdated",
