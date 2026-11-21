@@ -1,5 +1,6 @@
 import { LunaPlugin, LunaUnload, Tracer, unloadSet } from "@luna/core";
 import { ipcRenderer, MediaItem, PlayState, redux } from "@luna/lib";
+import { deprecatedMessage } from "./deprecated";
 import { send } from "./remoteService.native";
 import { storage } from "./Settings";
 
@@ -8,6 +9,9 @@ export { Settings } from "./Settings";
 
 export const unloads = new Set<LunaUnload>();
 export const { trace } = Tracer("[DesktopConnect]");
+
+// Shown each time the plugin loads, it keeps working meanwhile
+trace.msg.warn(deprecatedMessage);
 
 // #region From remote
 // Remote commands come in bursts (prepare, seek and play at once) and loading the media is async,
