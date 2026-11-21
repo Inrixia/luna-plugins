@@ -3,7 +3,7 @@ import { trace, unloads } from "./index.safe";
 import { MediaItem, PlayState, redux } from "@luna/lib";
 
 import "./contextMenu";
-import { maxAllowedFor } from "./exclusions";
+import { findReplacement } from "./exclusions";
 import { settings } from "./Settings";
 
 export { errSignal, unloads } from "./index.safe";
@@ -19,7 +19,7 @@ const getFormatString = async (mediaItem: MediaItem): Promise<string> => {
 
 const getMaxItem = async (mediaItem?: MediaItem) => {
 	if (mediaItem === undefined) return;
-	const maxItem = await maxAllowedFor(mediaItem);
+	const maxItem = await findReplacement(mediaItem);
 	if (maxItem === undefined) return;
 	if (settings.displayInfoPopups && !quietLookups.has(mediaItem!)) {
 		const [fromFmt, toFmt] = await Promise.all([getFormatString(mediaItem!), getFormatString(maxItem)]);
