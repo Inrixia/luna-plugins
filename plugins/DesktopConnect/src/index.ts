@@ -1,8 +1,10 @@
-import { LunaUnload, unloadSet } from "@luna/core";
+import { LunaPlugin, LunaUnload, unloadSet } from "@luna/core";
 import { ipcRenderer, MediaItem, PlayState, redux } from "@luna/lib";
 import { send } from "./remoteService.native";
+import { storage } from "./Settings";
 
 export * from "./remoteService.native";
+export { Settings } from "./Settings";
 
 export const unloads = new Set<LunaUnload>();
 
@@ -28,14 +30,26 @@ ipcRenderer.on(unloads, "remote.destop.set.volume.mute", ({ level, mute }: { lev
 });
 // #endregion
 
+// #region Scrobbling
+// The controlling device can scrobble itself, so scrobblers are turned off for the session and restored after
+type ScrobblerExports = { setScrobbling?: (enabled: boolean) => boolean };
+const pauseScrobbling = (sessionUnloads: Set<LunaUnload>) => {
+	for (const name of ["LastFM", "ListenBrainz"]) {
+		const setScrobbling = (LunaPlugin.getByName(name)?.exports as ScrobblerExports | undefined)?.setScrobbling;
+		if (setScrobbling === undefined) continue;
+		const previous = setScrobbling(false);
+		sessionUnloads.add(() => void setScrobbling(previous));
+	}
+};
+// #endregion
+
 // #region To remote
 // Using send from remoteService.native as its more consistent
 const sessionUnloads = new Set<LunaUnload>();
-/** True while another device controls playback, used by other plugins (e.g. LastFM) */
-export const isRemoteSessionActive = () => sessionUnloads.size !== 0;
 ipcRenderer.on(unloads, "remote.desktop.notify.session.state", (state) => {
 	if (state === 0) unloadSet(sessionUnloads);
 	if (sessionUnloads.size !== 0) return;
+	if (storage.pauseScrobbling && state !== 0) pauseScrobbling(sessionUnloads);
 	ipcRenderer.on(sessionUnloads, "client.playback.playersignal", ({ time }: { time: number }) => {
 		send({
 			command: "onProgressUpdated",

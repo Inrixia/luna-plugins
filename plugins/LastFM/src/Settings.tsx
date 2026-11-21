@@ -8,13 +8,22 @@ import React from "react";
 
 export const storage = await ReactiveStore.getPluginStorage<{
 	session?: LastFmSession;
-	ignoreDesktopConnect: boolean;
-}>("LastFM", { ignoreDesktopConnect: false });
+	scrobbling: boolean;
+}>("LastFM", { scrobbling: true });
+
+/**
+ * Turns scrobbling and now playing updates on or off, eg for other plugins. Returns the previous value
+ */
+export const setScrobbling = (enabled: boolean) => {
+	const previous = storage.scrobbling;
+	storage.scrobbling = enabled;
+	return previous;
+};
 
 export const Settings = () => {
 	const [session, setSession] = React.useState(storage.session);
 	const [loading, setLoading] = React.useState(false);
-	const [ignoreDesktopConnect, setIgnoreDesktopConnect] = React.useState(storage.ignoreDesktopConnect);
+	const [scrobbling, setScrobblingState] = React.useState(storage.scrobbling);
 
 	const connected = session !== undefined;
 
@@ -40,10 +49,13 @@ export const Settings = () => {
 				{loading ? "Loading..." : connected ? "Reconnect" : "Connect"}
 			</LunaButtonSetting>
 			<LunaSwitchSetting
-				title="Ignore DesktopConnect playback"
-				desc="Don't scrobble or update now playing while another device controls playback via DesktopConnect. Enable if that device already scrobbles (e.g. Last.fm is connected in its TIDAL app)"
-				checked={ignoreDesktopConnect}
-				onChange={(_, checked) => setIgnoreDesktopConnect((storage.ignoreDesktopConnect = checked))}
+				title="Scrobble"
+				desc="Scrobble and update now playing. Other plugins can turn this off, eg DesktopConnect while another device controls playback"
+				checked={scrobbling}
+				onChange={(_, checked) => {
+					setScrobbling(checked);
+					setScrobblingState(checked);
+				}}
 			/>
 		</LunaSettings>
 	);
