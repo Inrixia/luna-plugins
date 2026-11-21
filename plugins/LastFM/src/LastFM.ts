@@ -18,7 +18,8 @@ export type NowPlayingOpts = {
 	albumArtist?: string;
 };
 
-export interface ScrobbleOpts extends NowPlayingOpts {
+// No duration, it is intentionally not sent with scrobbles
+export interface ScrobbleOpts extends Omit<NowPlayingOpts, "duration"> {
 	timestamp: string;
 	streamId?: string;
 	chosenByUser?: string;
