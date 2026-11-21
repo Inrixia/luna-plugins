@@ -117,7 +117,12 @@ ipcRenderer.on(
 		// Newer remotes (Tidal Android, with an itemId) follow it with prepare and then play or pause,
 		// and send it again for the loaded media without wanting it reloaded. Older remotes send no play
 		const newer = itemId !== undefined;
-		if (newer && isLoaded(mediaId)) return;
+		// Older remotes re-send the loaded media too when they reconnect (eg after iOS suspends the app),
+		// loading it again would restart the track from 0
+		if (isLoaded(mediaId)) {
+			if (!newer) send({ command: "onRequestNextMedia", type: "media" });
+			return;
+		}
 		const loaded = await loadRemoteMedia(mediaId, mediaType);
 		send({ command: "onRequestNextMedia", type: "media" });
 		if (loaded && !newer) play();

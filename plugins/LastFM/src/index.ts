@@ -33,7 +33,10 @@ export const unloads = new Set<LunaUnload>();
 unloads.add(
 	MediaItem.onMediaTransition(unloads, (mediaItem) => {
 		if (!storage.scrobbling) return;
-		makeScrobbleOpts(mediaItem).then(LastFM.updateNowPlaying).catch(trace.msg.err.withContext(`Failed to updateNowPlaying!`));
+		// Duration goes only to now playing, scrobbles leave it out on purpose
+		makeScrobbleOpts(mediaItem)
+			.then((opts) => LastFM.updateNowPlaying({ ...opts, duration: mediaItem.duration?.toFixed(0) }))
+			.catch(trace.msg.err.withContext(`Failed to updateNowPlaying!`));
 	})
 );
 unloads.add(
