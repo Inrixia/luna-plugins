@@ -19,7 +19,6 @@ const makeScrobbleOpts = async (mediaItem: MediaItem): Promise<ScrobbleOpts> => 
 		album: await album?.title(),
 		albumArtist: (await album?.artist())?.name,
 		trackNumber: mediaItem.trackNumber?.toString(),
-		duration: mediaItem.duration?.toFixed(0),
 		mbid: await mediaItem.brainzId(),
 		timestamp: (Date.now() / 1000).toFixed(0),
 	};
@@ -32,7 +31,10 @@ export { Settings } from "./Settings";
 export const unloads = new Set<LunaUnload>();
 unloads.add(
 	MediaItem.onMediaTransition(unloads, (mediaItem) => {
-		makeScrobbleOpts(mediaItem).then(LastFM.updateNowPlaying).catch(trace.msg.err.withContext(`Failed to updateNowPlaying!`));
+		// Duration goes only to now playing, scrobbles leave it out on purpose
+		makeScrobbleOpts(mediaItem)
+			.then((opts) => LastFM.updateNowPlaying({ ...opts, duration: mediaItem.duration?.toFixed(0) }))
+			.catch(trace.msg.err.withContext(`Failed to updateNowPlaying!`));
 	})
 );
 unloads.add(
