@@ -2,6 +2,7 @@ import { MediaItem, observe, StyleTag } from "@luna/lib";
 
 import styles from "file://styles.css?minify";
 import { unloads } from "./index.safe";
+import "./setAlbumQualityTags";
 import { setFormatInfo } from "./setFormatInfo";
 import { setInfoColumns as setFormatColumns } from "./setInfoColumns";
 import { setQualityTags } from "./setQualityTags";
