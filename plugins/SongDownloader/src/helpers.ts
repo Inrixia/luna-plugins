@@ -9,9 +9,10 @@ export const getDownloadFolder = async () => {
 	if (!canceled) return filePaths[0];
 };
 export const getDownloadPath = async (defaultPath: string) => {
+	const extension = defaultPath.match(/\.(\w+)$/)?.[1] ?? "*";
 	const { canceled, filePath } = await showSaveDialog({
 		defaultPath,
-		filters: [{ name: "", extensions: [defaultPath ?? "*"] }],
+		filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
 	});
 	if (!canceled) return filePath;
 };
@@ -23,6 +24,12 @@ export const getFileName = async (mediaItem: MediaItem, audioQuality?: redux.Aud
 		if (Array.isArray(tagValue)) tagValue = tagValue[0];
 		if (tagValue === undefined) continue;
 		fileName = fileName.replaceAll(`{${tag}}`, sanitize(tagValue));
+	}
+	const trackNumber = tags.trackNumber;
+	if (trackNumber !== undefined) {
+		// Pad to at least 2 digits, more if the album has 100+ tracks
+		const width = Math.max(2, tags.totalTracks?.length ?? 0);
+		fileName = fileName.replaceAll("{trackNumberPadded}", sanitize(trackNumber.padStart(width, "0")));
 	}
 	return fileName;
 };

@@ -21,6 +21,17 @@ div[class*="titleCell"] {
 	margin-left: 5px;
 }
 
+.album-quality-tags {
+	height: 18px;
+	font-size: 11px;
+	line-height: 18px;
+	vertical-align: middle;
+}
+
+.album-quality-tags .quality-tag {
+	padding: 0 6px;
+}
+
 .format-info {
 	width: 100px;
 	min-height: 32px;
