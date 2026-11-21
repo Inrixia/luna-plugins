@@ -58,6 +58,13 @@ export const setFormatInfo = async (mediaItem?: MediaItem) => {
 	else formatInfoElem.style.border = "none";
 
 	formatUnload?.();
+	// Videos have no audio format to show
+	if (mediaItem.contentType !== "track") {
+		formatInfoElem.textContent = "";
+		formatInfoElem.style.border = "none";
+		formatUnload = undefined;
+		return;
+	}
 	formatUnload = mediaItem.withFormat(unloads, audioQuality, ({ sampleRate, bitDepth, bitrate }) => {
 		formatInfoElem.textContent = "";
 		if (!!sampleRate) formatInfoElem.textContent += `${sampleRate / 1000}kHz `;

@@ -45,10 +45,15 @@ const handleDrop = async (event: DragEvent) => {
 					startInMiddle: storage.startInMiddle,
 					exitOnFirstMatch: storage.exitOnFirstMatch,
 				});
-				if (matches.length === 0) return trace.msg.warn(`No matches for ${file.name}`);
-				for (const shazamData of matches) {
+				// Signatures without a match come back too, only the ones with a track matched
+				const matched = matches.filter((shazamData) => shazamData.track !== undefined);
+				if (matched.length === 0) {
+					trace.msg.warn(`No matches for ${file.name}`);
+					continue;
+				}
+				for (const shazamData of matched) {
 					const trackName =
-						shazamData.track?.share?.text ?? `${shazamData.track?.title ?? "unknown"} by ${shazamData.track?.artists?.[0] ?? "unknown"}"`;
+						shazamData.track?.share?.text ?? `${shazamData.track?.title ?? "unknown"} by ${shazamData.track?.subtitle ?? "unknown"}`;
 					const prefix = `[File: ${file.name}, Match: ${trackName}]`;
 					const isrc = shazamData.track?.isrc;
 					trace.log(shazamData);
@@ -59,7 +64,8 @@ const handleDrop = async (event: DragEvent) => {
 					const mediaItem = await MediaItem.fromIsrc(isrc);
 					if (mediaItem !== undefined) {
 						trace.msg.log(`Adding ${prefix}...`);
-						return await addToPlaylist(playlistUUID, [mediaItem.id.toString()]);
+						await addToPlaylist(playlistUUID, [mediaItem.id.toString()]);
+						break;
 					}
 					trace.msg.err(`${prefix} Not avalible in Tidal.`);
 				}

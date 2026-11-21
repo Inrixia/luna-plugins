@@ -1,4 +1,5 @@
 import { debounce } from "@inrixia/helpers";
+import type { LunaUnload } from "@luna/core";
 import type { MediaItem } from "@luna/lib";
 import { unloads } from "./index.safe";
 import { ensureColumnHeader } from "./lib/ensureColumnHeader";
@@ -21,7 +22,19 @@ export const setInfoColumnHeaders = debounce(() => {
 	}
 }, 50);
 
+// The format listener of each row. Rows are re-rendered and recycled while scrolling, so the listener of a row is replaced
+// when the row is filled again and removed once the row has left the DOM. Without this every call added a listener that
+// lived until the plugin unloaded and kept its detached row (and the rest of that DOM tree) in memory.
+const rowFormatUnloads = new Map<Element, LunaUnload>();
+const unloadRowFormat = (trackRow: Element) => {
+	rowFormatUnloads.get(trackRow)?.();
+	rowFormatUnloads.delete(trackRow);
+};
+unloads.add(() => rowFormatUnloads.clear());
+
 export const setInfoColumns = async (trackRow: Element, mediaItem: MediaItem) => {
+	for (const row of rowFormatUnloads.keys()) if (!row.isConnected) unloadRowFormat(row);
+	unloadRowFormat(trackRow);
 	setInfoColumnHeaders();
 	const bitDepthContent = document.createElement("span");
 	const bitDepthColumn = setColumn(trackRow, "Depth", `div[data-test="duration"]`, bitDepthContent, `div[data-test="duration"]`);
@@ -39,11 +52,12 @@ export const setInfoColumns = async (trackRow: Element, mediaItem: MediaItem) =>
 
 	bitDepthContent.style.color = sampleRateContent.style.color = bitrateContent.style.color = quality.color;
 
-	mediaItem.withFormat(unloads, quality.audioQuality, ({ sampleRate, bitDepth, bitrate }) => {
+	const unloadFormat = mediaItem.withFormat(unloads, quality.audioQuality, ({ sampleRate, bitDepth, bitrate }) => {
 		if (!!sampleRate) sampleRateContent.textContent = `${sampleRate / 1000}kHz`;
 		if (!!bitDepth) bitDepthContent.textContent = `${bitDepth}bit`;
 		if (!!bitrate) bitrateContent.textContent = `${Math.floor(bitrate / 1000).toLocaleString()}kbps`;
 	});
+	rowFormatUnloads.set(trackRow, unloadFormat);
 
 	if (settings.autoPopulateColumns) await mediaItem.updateFormat(quality.audioQuality);
 };

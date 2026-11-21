@@ -9,9 +9,10 @@ export const getDownloadFolder = async () => {
 	if (!canceled) return filePaths[0];
 };
 export const getDownloadPath = async (defaultPath: string) => {
+	const extension = defaultPath.match(/\.(\w+)$/)?.[1] ?? "*";
 	const { canceled, filePath } = await showSaveDialog({
 		defaultPath,
-		filters: [{ name: "", extensions: [defaultPath ?? "*"] }],
+		filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
 	});
 	if (!canceled) return filePath;
 };
