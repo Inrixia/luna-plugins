@@ -13,8 +13,12 @@ export const settings = await ReactiveStore.getPluginStorage<{
 
 const setAvatar = async (customUrl?: string) => {
 	if (customUrl === "" || customUrl === undefined) {
-		const emailHash = await md5(redux.store.getState().user.meta.email);
-		return (settings.customUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon`);
+		// Not known while logged out
+		const email = redux.store.getState().user.meta?.email;
+		if (!email) return;
+		// Gravatar hashes the trimmed, lowercased email
+		const emailHash = await md5(email.trim().toLowerCase());
+		customUrl = settings.customUrl = `https://www.gravatar.com/avatar/${emailHash}?d=identicon`;
 	}
 	// Thx @n1ckoates
 	avatarCSS.css = `
@@ -27,6 +31,7 @@ const setAvatar = async (customUrl?: string) => {
 			display: none;
 		}
 	`;
+	return customUrl;
 };
 
 safeTimeout(
@@ -48,7 +53,7 @@ export const Settings = () => {
 				value={customUrl}
 				onChange={async (e) => {
 					settings.customUrl = e.target.value;
-					setCustomUrl(await setAvatar(settings.customUrl));
+					setCustomUrl((await setAvatar(settings.customUrl)) ?? "");
 				}}
 			/>
 		</LunaSettings>
