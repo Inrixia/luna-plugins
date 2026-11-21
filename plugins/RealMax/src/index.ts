@@ -21,7 +21,7 @@ const getMaxItem = async (mediaItem?: MediaItem) => {
 	if (mediaItem === undefined) return;
 	const maxItem = await maxAllowedFor(mediaItem);
 	if (maxItem === undefined) return;
-	if (settings.displayInfoPopups) {
+	if (settings.displayInfoPopups && !quietLookups.has(mediaItem!)) {
 		const [fromFmt, toFmt] = await Promise.all([getFormatString(mediaItem!), getFormatString(maxItem)]);
 		trace.msg.log(`Found replacement for ${mediaItem!.tidalItem.title} (${fromFmt} -> ${toFmt})`);
 	}
@@ -118,3 +118,11 @@ redux.intercept(["playQueue/MOVE_TO", "playQueue/MOVE_NEXT", "playQueue/MOVE_PRE
 	})();
 	return true;
 });
+
+// getMaxItem without the info popup, for the playlist builder in contextMenu.ts.
+// Both use the same lookup, so a playlist gets the same replacements as the play queue.
+const quietLookups = new WeakSet<MediaItem>();
+export const getMaxItemQuiet = (mediaItem: MediaItem) => {
+	quietLookups.add(mediaItem);
+	return getMaxItem(mediaItem).finally(() => quietLookups.delete(mediaItem));
+};
