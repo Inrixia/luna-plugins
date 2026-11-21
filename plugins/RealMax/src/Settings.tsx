@@ -2,6 +2,8 @@ import { ReactiveStore } from "@luna/core";
 import { LunaSetting, LunaSettings, LunaSwitchSetting, LunaTrashButton } from "@luna/ui";
 import React from "react";
 
+import type { ExclusionList } from "./exclusions";
+
 export const settings = await ReactiveStore.getPluginStorage("RealMAX", {
 	displayInfoPopups: true,
 	// trackId -> label
@@ -9,7 +11,7 @@ export const settings = await ReactiveStore.getPluginStorage("RealMAX", {
 	neverUse: {} as Record<string, string>,
 });
 
-const TrackList = ({ list, title, desc }: { list: "keepVersion" | "neverUse"; title: string; desc: string }) => {
+const TrackList = ({ list, title, desc }: { list: ExclusionList; title: string; desc: string }) => {
 	const [tracks, setTracks] = React.useState(() => ({ ...settings[list] }));
 	const ids = Object.keys(tracks);
 	return (

@@ -10,9 +10,14 @@ export type ExclusionList = "keepVersion" | "neverUse";
 export const isExcluded = (list: ExclusionList, id: MediaItem["id"]) => String(id) in settings[list];
 
 /**
- * Same search as MediaItem.max() but skipping tracks in the neverUse list.
+ * The version RealMAX should switch `mediaItem` to, respecting both lists. Undefined = keep `mediaItem`.
  */
-const maxAllowed = async (mediaItem: MediaItem): Promise<MediaItem | undefined> => {
+export const findReplacement = async (mediaItem: MediaItem): Promise<MediaItem | undefined> => {
+	if (isExcluded("keepVersion", mediaItem.id)) return;
+	const maxItem = await mediaItem.max();
+	if (maxItem === undefined || !isExcluded("neverUse", maxItem.id)) return maxItem;
+
+	// The best version is in neverUse: same search as MediaItem.max(), skipping neverUse tracks
 	let bestMediaItem: MediaItem = mediaItem;
 	for await (const isrc of mediaItem.isrcs()) {
 		const candidate = await MediaItem.fromIsrc(isrc);
@@ -23,16 +28,6 @@ const maxAllowed = async (mediaItem: MediaItem): Promise<MediaItem | undefined> 
 		}
 	}
 	return String(bestMediaItem.id) === String(mediaItem.id) ? undefined : bestMediaItem;
-};
-
-/**
- * The version RealMAX should switch `mediaItem` to, respecting both lists. Undefined = keep `mediaItem`.
- */
-export const maxAllowedFor = async (mediaItem: MediaItem): Promise<MediaItem | undefined> => {
-	if (isExcluded("keepVersion", mediaItem.id)) return;
-	const maxItem = await mediaItem.max();
-	if (maxItem !== undefined && isExcluded("neverUse", maxItem.id)) return maxAllowed(mediaItem);
-	return maxItem;
 };
 
 const trackLabel = (mediaItem: MediaItem) => {
