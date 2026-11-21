@@ -4,6 +4,7 @@ import { MediaItem, PlayState, redux } from "@luna/lib";
 export const { trace, errSignal } = Tracer("[last.fm]");
 
 import { LastFM, ScrobbleOpts } from "./LastFM";
+import { storage } from "./Settings";
 
 redux.actions["lastFm/DISCONNECT"]();
 
@@ -26,11 +27,12 @@ const makeScrobbleOpts = async (mediaItem: MediaItem): Promise<ScrobbleOpts> => 
 	return scrobbleOpts as ScrobbleOpts;
 };
 
-export { Settings } from "./Settings";
+export { setScrobbling, Settings } from "./Settings";
 
 export const unloads = new Set<LunaUnload>();
 unloads.add(
 	MediaItem.onMediaTransition(unloads, (mediaItem) => {
+		if (!storage.scrobbling) return;
 		// Duration goes only to now playing, scrobbles leave it out on purpose
 		makeScrobbleOpts(mediaItem)
 			.then((opts) => LastFM.updateNowPlaying({ ...opts, duration: mediaItem.duration?.toFixed(0) }))
@@ -39,6 +41,7 @@ unloads.add(
 );
 unloads.add(
 	PlayState.onScrobble(unloads, async (mediaItem) => {
+		if (!storage.scrobbling) return;
 		const scrobbleOpts = await makeScrobbleOpts(mediaItem);
 		LastFM.scrobble(scrobbleOpts)
 			.catch(trace.msg.err.withContext(`Failed to scrobble!`))
