@@ -79,6 +79,7 @@ export const Settings = () => {
 							{MediaItem.availableTags.map((tag) => (
 								<li key={tag}>{tag}</li>
 							))}
+							<li>trackNumberPadded (trackNumber with leading zeros, e.g. 01)</li>
 						</ul>
 					</>
 				}
