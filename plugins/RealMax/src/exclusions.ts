@@ -5,34 +5,29 @@ import { ContextMenu, MediaItem, MediaItems, Quality, redux } from "@luna/lib";
 import { settings } from "./Settings";
 
 // keepVersion: never replace these tracks. neverUse: never pick these tracks as a replacement.
-export type VersionList = "keepVersion" | "neverUse";
+export type ExclusionList = "keepVersion" | "neverUse";
 
-export const isInList = (list: VersionList, id: MediaItem["id"]) => String(id) in settings[list];
+export const isExcluded = (list: ExclusionList, id: MediaItem["id"]) => String(id) in settings[list];
 
 /**
- * Same search as MediaItem.max() but skipping tracks in the neverUse list.
+ * The version RealMAX should switch `mediaItem` to, respecting both lists. Undefined = keep `mediaItem`.
  */
-const maxSkippingNeverUse = async (mediaItem: MediaItem): Promise<MediaItem | undefined> => {
+export const findReplacement = async (mediaItem: MediaItem): Promise<MediaItem | undefined> => {
+	if (isExcluded("keepVersion", mediaItem.id)) return;
+	const maxItem = await mediaItem.max();
+	if (maxItem === undefined || !isExcluded("neverUse", maxItem.id)) return maxItem;
+
+	// The best version is in neverUse: same search as MediaItem.max(), skipping neverUse tracks
 	let bestMediaItem: MediaItem = mediaItem;
 	for await (const isrc of mediaItem.isrcs()) {
 		const candidate = await MediaItem.fromIsrc(isrc);
-		if (candidate === undefined || isInList("neverUse", candidate.id)) continue;
+		if (candidate === undefined || isExcluded("neverUse", candidate.id)) continue;
 		if (candidate.bestQuality > bestMediaItem.bestQuality) {
 			bestMediaItem = candidate;
 			if (bestMediaItem.bestQuality >= Quality.Max) break;
 		}
 	}
 	return String(bestMediaItem.id) === String(mediaItem.id) ? undefined : bestMediaItem;
-};
-
-/**
- * The version RealMAX should switch `mediaItem` to, respecting both lists. Undefined = keep `mediaItem`.
- */
-export const findReplacement = async (mediaItem: MediaItem): Promise<MediaItem | undefined> => {
-	if (isInList("keepVersion", mediaItem.id)) return;
-	const maxItem = await mediaItem.max();
-	if (maxItem !== undefined && isInList("neverUse", maxItem.id)) return maxSkippingNeverUse(mediaItem);
-	return maxItem;
 };
 
 const trackLabel = (mediaItem: MediaItem) => {
@@ -43,12 +38,12 @@ const trackLabel = (mediaItem: MediaItem) => {
 	return label;
 };
 
-const buttonText: Record<VersionList, { add: string; remove: string }> = {
+const buttonText: Record<ExclusionList, { add: string; remove: string }> = {
 	keepVersion: { add: "RealMAX: Keep this version", remove: "RealMAX: Allow replacing" },
 	neverUse: { add: "RealMAX: Never use this version", remove: "RealMAX: Allow as replacement" },
 };
 
-const lists: VersionList[] = ["keepVersion", "neverUse"];
+const lists: ExclusionList[] = ["keepVersion", "neverUse"];
 const buttons = lists.map((list) => ({ list, button: ContextMenu.addButton(unloads) }));
 
 ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
@@ -64,7 +59,7 @@ ContextMenu.onMediaItem(unloads, async ({ mediaCollection, contextMenu }) => {
 
 	const count = mediaItems.length > 1 ? ` (${mediaItems.length} tracks)` : "";
 	for (const { list, button } of buttons) {
-		const allListed = mediaItems.every(({ id }) => isInList(list, id));
+		const allListed = mediaItems.every(({ id }) => isExcluded(list, id));
 		button.text = (allListed ? buttonText[list].remove : buttonText[list].add) + count;
 		button.onClick(() => {
 			for (const mediaItem of mediaItems) {
