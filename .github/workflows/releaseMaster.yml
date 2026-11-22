@@ -11,6 +11,8 @@ on:
 jobs:
  Build:
   uses: ./.github/workflows/build.yml
+  # TIDAL_SERVER_KEY_PEM for DesktopConnectNative
+  secrets: inherit
 
  Release:
   name: Release latest on GitHub
