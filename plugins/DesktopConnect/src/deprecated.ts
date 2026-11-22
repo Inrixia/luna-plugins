@@ -1,4 +1,4 @@
-import { LunaPlugin, type Tracer } from "@luna/core";
+import { LunaPlugin, type LunaUnload, type Tracer } from "@luna/core";
 import { confirm } from "@luna/ui";
 
 // DesktopConnect is replaced by DesktopConnectNative (its own TIDAL Connect receiver), published in the Lunatic UI store
@@ -9,12 +9,30 @@ const nativePluginUrl = "https://github.com/Solomag/lunatic-ui/releases/download
 const deprecatedMessage = "DesktopConnect is deprecated, install DesktopConnectNative from Settings → Plugin Store instead";
 
 type Trace = ReturnType<typeof Tracer>["trace"];
+type ConfirmOptions = Parameters<typeof confirm>[0];
 
-// Asked each time DesktopConnect loads until the user switches: installs (or enables) DesktopConnectNative, then disables DesktopConnect
-export const askToSwitch = async (trace: Trace) => {
+// Luna has one confirm dialog: another prompt (eg Luna's update prompt at startup) replaces this one and its answer never comes.
+// So it is shown only while no other dialog is open, and shown again when it was replaced
+const dialogCheckMs = 1000;
+const askUntilAnswered = (unloads: Set<LunaUnload>, options: ConfirmOptions) =>
+	new Promise<boolean>((resolve) => {
+		let answered = false;
+		const check = setInterval(() => {
+			if (answered || document.querySelector("[role=dialog]") !== null) return;
+			confirm(options).then(({ confirmed }) => {
+				answered = true;
+				clearInterval(check);
+				resolve(confirmed);
+			});
+		}, dialogCheckMs);
+		unloads.add(() => clearInterval(check));
+	});
+
+// Asked every time DesktopConnect loads: installs (or enables) DesktopConnectNative, then disables DesktopConnect
+export const askToSwitch = async (trace: Trace, unloads: Set<LunaUnload>) => {
 	const native = LunaPlugin.getByName(nativeName);
 	const hasNative = native?.installed === true;
-	const { confirmed } = await confirm({
+	const confirmed = await askUntilAnswered(unloads, {
 		title: "DesktopConnect is deprecated",
 		description: hasNative
 			? "DesktopConnect is no longer developed and may be removed. DesktopConnectNative replaces it and is already installed."
