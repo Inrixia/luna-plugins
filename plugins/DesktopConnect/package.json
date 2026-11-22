@@ -1,6 +1,6 @@
 {
 	"name": "DesktopConnect",
-	"description": "Remote control the TIDAL Desktop client via TIDAL Connect",
+	"description": "Deprecated, use DesktopConnectNative from the Plugin Store. Remote control the TIDAL Desktop client via TIDAL Connect",
 	"homepage": "https://github.com/Inrixia/luna-plugins#DesktopConnect",
 	"author": {
 		"name": "Inrixia",

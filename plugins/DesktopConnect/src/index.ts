@@ -1,5 +1,6 @@
 import { LunaPlugin, LunaUnload, Tracer, unloadSet } from "@luna/core";
 import { ipcRenderer, MediaItem, PlayState, redux } from "@luna/lib";
+import { askToSwitch } from "./deprecated";
 import { send } from "./remoteService.native";
 import { storage } from "./Settings";
 
@@ -8,6 +9,9 @@ export { Settings } from "./Settings";
 
 export const unloads = new Set<LunaUnload>();
 export const { trace } = Tracer("[DesktopConnect]");
+
+// Asked every time the plugin loads
+askToSwitch(trace, unloads).catch(trace.msg.err);
 
 // #region From remote
 // Remote commands come in bursts (prepare, seek and play at once) and loading the media is async,
