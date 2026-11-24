@@ -153,6 +153,7 @@ describe("DiscordRPC updateActivity", async () => {
 	test("says Unknown Artist when the track has no artists, and has no large image without an album", async (t) => {
 		const activity = <any>(await run(t, fakeItem({ artists: [], album: false }))).sent[0].activity;
 		assert.equal(activity.state, "Unknown Artist");
+		// Pins current behaviour: with no artist the link is built from an undefined id (a broken URL, see COVERAGE.md)
 		assert.equal(activity.stateUrl, "https://tidal.com/artist/undefined/u");
 		assert.equal(activity.largeImageKey, undefined);
 	});
@@ -177,8 +178,8 @@ describe("DiscordRPC updateActivity", async () => {
 
 		errSignal._ = "error";
 		discord.setActivity = async () => {};
+		// Returns only once the signal is cleared
 		await runUntil(t, () => errSignal._ === undefined, fakeItem());
-		assert.equal(errSignal._, undefined);
 	});
 
 	test("queues a call made during an update and runs it after the update finishes", async (t) => {

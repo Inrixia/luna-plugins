@@ -116,13 +116,12 @@ describe("RealMAX", async () => {
 			]);
 
 			calls.length = 0;
-			delete tracks.amax;
-			track("cmax", Quality.HiRes);
-			move(2, "playQueue/MOVE_TO");
+			// Index 0 is not next to the current one (1), so taking "the next element" instead of the given one fails
+			move(0, "playQueue/MOVE_TO");
 			await waitFor(() => calls.length >= 2, "the queue update and move");
 			assert.deepEqual(calls, [
-				["updatePlayQueue", { elements: [{ mediaItemId: "a" }, { mediaItemId: "b" }, { mediaItemId: "cmax" }], currentIndex: 1 }],
-				["moveTo", 2],
+				["updatePlayQueue", { elements: [{ mediaItemId: "amax" }, { mediaItemId: "b" }, { mediaItemId: "c" }], currentIndex: 1 }],
+				["moveTo", 0],
 			]);
 		});
 
