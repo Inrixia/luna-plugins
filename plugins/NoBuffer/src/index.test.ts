@@ -97,7 +97,6 @@ describe("NoBuffer", async () => {
 			onState("STALLED");
 			await waitFor(() => traced.some(({ level, context }) => level === "err" && context === "playbackInfo"), "the playbackInfo error");
 			assert.equal(fetchStream.mock.callCount(), 0);
-			assert.ok(traced.some(({ level, context }) => level === "err" && context === "playbackInfo"));
 		});
 
 		test("does nothing when nothing is playing", async (t) => {
