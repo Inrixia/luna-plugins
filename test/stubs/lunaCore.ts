@@ -1,4 +1,6 @@
 // Minimal @luna/core for node:test. Only what the plugins import.
+import { rejectNotOk, toJson } from "@inrixia/helpers";
+
 export type LunaUnload = () => unknown;
 export type LunaUnloads = Set<LunaUnload>;
 
@@ -32,8 +34,12 @@ export const findModuleProperty = <T>(fn: (key: string, value: unknown) => boole
 	return undefined;
 };
 
+// Same as luna's render/src/helpers/fetch.ts: non 2xx responses reject with "<status> <statusText>" before the body is read
 export const ftch = {
-	json: async <T>(url: string, init?: RequestInit): Promise<T> => (await fetch(url, init)).json(),
+	json: <T>(...args: Parameters<typeof fetch>) =>
+		fetch(...args)
+			.then(rejectNotOk)
+			.then(toJson<T>),
 };
 
 export const ReactiveStore = {

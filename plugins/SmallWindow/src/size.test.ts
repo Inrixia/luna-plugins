@@ -1,5 +1,5 @@
 // Run: pnpm exec tsx --test plugins/SmallWindow/src/size.test.ts
-// Covers: size.ts
+// Covers: size.native.ts
 import "../../../test/hooks";
 
 import assert from "node:assert/strict";

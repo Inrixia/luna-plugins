@@ -4,10 +4,7 @@ import "../../../test/hooks";
 
 import assert from "node:assert/strict";
 import { beforeEach, describe, test } from "node:test";
-
-const flush = async () => {
-	for (let i = 0; i < 5; i++) await new Promise((res) => setImmediate(res));
-};
+import { waitFor } from "../../../test/waitFor";
 
 // This file loads as CommonJS (plugin package.jsons have no "type": "module"), so no top-level await: load the code in an async describe
 describe("RealMAX", async () => {
@@ -57,16 +54,24 @@ describe("RealMAX", async () => {
 			track("bmax", Quality.HiRes);
 			const payload = { mediaItemIds: ["a", "b", "c"], fromIndex: 1, other: 1 };
 			assert.equal(addNow(payload), true);
-			await flush();
+			await waitFor(() => dispatched.length, "the re-dispatch");
 			assert.deepEqual(dispatched, [{ type: "playQueue/ADD_NOW", payload: { mediaItemIds: ["a", "bmax", "c"], fromIndex: 1, other: 1 } }]);
 			// The intercepted payload isn't changed
 			assert.deepEqual(payload.mediaItemIds, ["a", "b", "c"]);
 		});
 
-		test("uses index 0 without fromIndex, and re-dispatches unchanged when there is no better version", async () => {
+		test("swaps the first track without fromIndex", async () => {
+			track("amax", Quality.HiRes);
+			track("bmax", Quality.HiRes);
 			addNow({ mediaItemIds: ["a", "b"] });
-			await flush();
-			assert.deepEqual(dispatched[0].payload, { mediaItemIds: ["a", "b"] });
+			await waitFor(() => dispatched.length, "the re-dispatch");
+			assert.deepEqual(dispatched, [{ type: "playQueue/ADD_NOW", payload: { mediaItemIds: ["amax", "b"] } }]);
+		});
+
+		test("re-dispatches unchanged when there is no better version", async () => {
+			addNow({ mediaItemIds: ["a", "b"], fromIndex: 1 });
+			await waitFor(() => dispatched.length, "the re-dispatch");
+			assert.deepEqual(dispatched, [{ type: "playQueue/ADD_NOW", payload: { mediaItemIds: ["a", "b"], fromIndex: 1 } }]);
 		});
 
 		test("still re-dispatches when the lookup fails", async () => {
@@ -74,7 +79,7 @@ describe("RealMAX", async () => {
 				throw new Error("offline");
 			};
 			addNow({ mediaItemIds: ["a"] });
-			await flush();
+			await waitFor(() => dispatched.length, "the re-dispatch");
 			assert.deepEqual(dispatched[0].payload, { mediaItemIds: ["a"] });
 			assert.ok(traced.some(({ level, context }) => level === "msg.err" && context === "playQueue/ADD_NOW"));
 		});
@@ -83,7 +88,7 @@ describe("RealMAX", async () => {
 			settings.displayInfoPopups = true;
 			track("amax", Quality.HiRes);
 			addNow({ mediaItemIds: ["a"] });
-			await flush();
+			await waitFor(() => dispatched.length, "the re-dispatch");
 			assert.deepEqual(traced.find(({ level }) => level === "msg.log")?.args, ["Found replacement for Track a (16bit/44.1kHz -> 24bit/96kHz)"]);
 		});
 	});
@@ -94,7 +99,7 @@ describe("RealMAX", async () => {
 		test("MOVE_NEXT swaps the next queue element for its max version, then moves on", async () => {
 			track("cmax", Quality.HiRes);
 			assert.equal(move(undefined, "playQueue/MOVE_NEXT"), true);
-			await flush();
+			await waitFor(() => calls.length >= 2, "the queue update and move");
 			assert.deepEqual(calls, [
 				["updatePlayQueue", { elements: [{ mediaItemId: "a" }, { mediaItemId: "b" }, { mediaItemId: "cmax" }], currentIndex: 1 }],
 				["next"],
@@ -104,22 +109,28 @@ describe("RealMAX", async () => {
 		test("MOVE_PREVIOUS looks at the previous element and MOVE_TO at the given index", async () => {
 			track("amax", Quality.HiRes);
 			move(undefined, "playQueue/MOVE_PREVIOUS");
-			await flush();
-			assert.deepEqual(
-				calls.map(([name]) => name),
-				["updatePlayQueue", "previous"],
-			);
+			await waitFor(() => calls.length >= 2, "the queue update and move");
+			assert.deepEqual(calls, [
+				["updatePlayQueue", { elements: [{ mediaItemId: "amax" }, { mediaItemId: "b" }, { mediaItemId: "c" }], currentIndex: 1 }],
+				["previous"],
+			]);
 
 			calls.length = 0;
+			delete tracks.amax;
+			track("cmax", Quality.HiRes);
 			move(2, "playQueue/MOVE_TO");
-			await flush();
-			assert.deepEqual(calls, [["moveTo", 2]]);
+			await waitFor(() => calls.length >= 2, "the queue update and move");
+			assert.deepEqual(calls, [
+				["updatePlayQueue", { elements: [{ mediaItemId: "a" }, { mediaItemId: "b" }, { mediaItemId: "cmax" }], currentIndex: 1 }],
+				["moveTo", 2],
+			]);
 		});
 
 		test("moves without touching the queue past its end or for kept versions", async () => {
 			PlayState.playQueue.currentIndex = 2;
 			move(undefined, "playQueue/MOVE_NEXT");
-			await flush();
+			// next() is the handler's last call, so nothing else can follow it
+			await waitFor(() => calls.length, "the move");
 			assert.deepEqual(calls, [["next"]]);
 
 			calls.length = 0;
@@ -127,7 +138,8 @@ describe("RealMAX", async () => {
 			track("cmax", Quality.HiRes);
 			settings.keepVersion = { c: "kept" };
 			move(undefined, "playQueue/MOVE_NEXT");
-			await flush();
+			// next() is the handler's last call, so nothing else can follow it
+			await waitFor(() => calls.length, "the move");
 			assert.deepEqual(calls, [["next"]]);
 		});
 	});
@@ -198,7 +210,7 @@ describe("RealMAX", async () => {
 			const create = t.mock.method(Playlist, "create", () => new Promise<void>((res) => (finish = res)));
 			await onMediaItem({ mediaCollection: collection([tracks.a]), contextMenu: {} });
 			const first = maxButton.click!();
-			await flush();
+			await waitFor(() => create.mock.callCount(), "the first playlist create");
 			await maxButton.click!();
 			finish();
 			await first;

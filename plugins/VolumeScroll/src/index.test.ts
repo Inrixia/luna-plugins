@@ -5,9 +5,13 @@ import "../../../test/hooks";
 import assert from "node:assert/strict";
 import { beforeEach, describe, test } from "node:test";
 
-/** Fake volume slider that keeps its wheel listeners */
-const slider = { listeners: new Set<(e: any) => void>() } as any;
-slider.addEventListener = (type: string, fn: (e: any) => void) => type === "wheel" && slider.listeners.add(fn);
+/** Fake volume slider that keeps its wheel listeners and counts every addEventListener("wheel") call (a Set alone would hide a second add of the same fn) */
+const slider = { listeners: new Set<(e: any) => void>(), wheelAdds: 0 } as any;
+slider.addEventListener = (type: string, fn: (e: any) => void) => {
+	if (type !== "wheel") return;
+	slider.wheelAdds++;
+	slider.listeners.add(fn);
+};
 slider.removeEventListener = (type: string, fn: (e: any) => void) => type === "wheel" && slider.listeners.delete(fn);
 let sliders: unknown[] = [];
 
@@ -33,10 +37,11 @@ describe("VolumeScroll", async () => {
 	});
 
 	test("hooks the volume slider once the page loads, and only once", () => {
-		assert.equal(slider.listeners.size, 0);
+		assert.equal(slider.wheelAdds, 0);
 		sliders = [slider];
 		for (const cb of intercepts["page/SET_PAGE_ID"]) cb(undefined);
 		for (const cb of intercepts["page/SET_PAGE_ID"]) cb(undefined);
+		assert.equal(slider.wheelAdds, 1);
 		assert.equal(slider.listeners.size, 1);
 	});
 

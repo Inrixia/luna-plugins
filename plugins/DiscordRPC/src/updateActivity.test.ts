@@ -4,6 +4,7 @@ import "../../../test/hooks";
 
 import assert from "node:assert/strict";
 import { beforeEach, describe, test, type TestContext } from "node:test";
+import { waitFor } from "../../../test/waitFor";
 
 const NOW = 1_700_000_000_000;
 /** Mocked time when the debounced update runs */
@@ -22,6 +23,7 @@ const fakeItem = (opts: { id?: number; artists?: string[]; duration?: number; al
 	};
 };
 
+/** Lets pending async work settle, only before checking that nothing (more) happened */
 const flush = async () => {
 	for (let i = 0; i < 3; i++) await new Promise((res) => setImmediate(res));
 };
@@ -34,17 +36,23 @@ describe("DiscordRPC updateActivity", async () => {
 	const { errSignal } = await import("../../../test/stubs/discordIndex");
 	const { updateActivity } = await import("./updateActivity");
 
-	/** Calls updateActivity, lets its 300ms debounce run, and returns what was sent to Discord */
-	const run = async (t: TestContext, ...calls: (unknown | undefined)[]) => {
+	/**
+	 * Calls updateActivity, lets its 300ms debounce run, then waits until `done()` is truthy, or for a fixed flush when `done` is undefined (to check nothing was sent).
+	 * Returns what was sent to Discord.
+	 */
+	const runUntil = async (t: TestContext, done: (() => unknown) | undefined, ...calls: (unknown | undefined)[]) => {
 		t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: NOW });
 		for (const mediaItem of calls) updateActivity(<any>mediaItem);
 		t.mock.timers.tick(299);
 		await flush();
 		const before = activities.length;
 		t.mock.timers.tick(1);
-		await flush();
+		if (done === undefined) await flush();
+		else await waitFor(done, "the activity update");
 		return { sentBeforeDebounce: before, sent: activities.splice(0) };
 	};
+	/** runUntil something was sent to Discord */
+	const run = (t: TestContext, ...calls: (unknown | undefined)[]) => runUntil(t, () => activities.length, ...calls);
 
 	beforeEach(() => {
 		activities.length = 0;
@@ -155,21 +163,21 @@ describe("DiscordRPC updateActivity", async () => {
 		t.mock.timers.reset();
 
 		t.mock.method(MediaItem, "fromPlaybackContext", async () => undefined);
-		assert.deepEqual((await run(t, undefined)).sent, []);
+		assert.deepEqual((await runUntil(t, undefined, undefined)).sent, []);
 	});
 
 	test("logs a failed update and clears the error signal after the next successful one", async (t) => {
 		discord.setActivity = async () => {
 			throw new Error("pipe closed");
 		};
-		await run(t, fakeItem());
+		await runUntil(t, () => traced.length, fakeItem());
 		assert.equal(traced.at(-1)?.context, "Failed to set activity");
 		assert.equal((<Error>traced.at(-1)?.args[0]).message, "pipe closed");
 		t.mock.timers.reset();
 
 		errSignal._ = "error";
 		discord.setActivity = async () => {};
-		await run(t, fakeItem());
+		await runUntil(t, () => errSignal._ === undefined, fakeItem());
 		assert.equal(errSignal._, undefined);
 	});
 
@@ -183,7 +191,7 @@ describe("DiscordRPC updateActivity", async () => {
 		t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: NOW });
 		updateActivity(fakeItem({ id: 1 }));
 		t.mock.timers.tick(300);
-		await flush();
+		await waitFor(() => sent.length, "the first update");
 		// First update is stuck in setActivity, these are queued, only the last one is kept
 		updateActivity(fakeItem({ id: 2 }));
 		updateActivity(fakeItem({ id: 3 }));
@@ -192,9 +200,8 @@ describe("DiscordRPC updateActivity", async () => {
 		assert.deepEqual(sent, ["https://tidal.com/track/1/u"]);
 
 		release();
-		await flush();
-		t.mock.timers.tick(300);
-		await flush();
+		// The queued call starts its debounce once the first update has finished, so keep moving the clock until it has been sent
+		await waitFor(() => sent.length === 2 || void t.mock.timers.tick(300), "the queued update");
 		assert.deepEqual(sent, ["https://tidal.com/track/1/u", "https://tidal.com/track/3/u"]);
 	});
 });

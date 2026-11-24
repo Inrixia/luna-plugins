@@ -4,6 +4,7 @@ import "../../../test/hooks";
 
 import assert from "node:assert/strict";
 import { beforeEach, describe, test } from "node:test";
+import { waitFor } from "../../../test/waitFor";
 
 const fakeItem = (opts: Record<string, any> = {}): any => ({
 	title: async () => opts.title ?? "Song",
@@ -16,6 +17,7 @@ const fakeItem = (opts: Record<string, any> = {}): any => ({
 	brainzId: async () => opts.brainzId,
 	duration: opts.duration,
 });
+/** Lets pending async work settle, only before checking that nothing happened */
 const flush = async () => {
 	for (let i = 0; i < 3; i++) await new Promise((res) => setImmediate(res));
 };
@@ -46,7 +48,7 @@ describe("LastFM plugin", async () => {
 		t.mock.timers.enable({ apis: ["Date"], now: 1_700_000_000_400 });
 		const update = t.mock.method(LastFM, "updateNowPlaying", async () => ({}));
 		onMediaTransition(fakeItem({ duration: 215.6, trackNumber: 3, brainzId: "mbid", albumArtist: "VA" }));
-		await flush();
+		await waitFor(() => update.mock.callCount(), "updateNowPlaying");
 		assert.deepEqual(update.mock.calls[0].arguments, [
 			{
 				track: "Song",
@@ -84,7 +86,7 @@ describe("LastFM plugin", async () => {
 			throw new Error("offline");
 		});
 		onMediaTransition(fakeItem());
-		await flush();
+		await waitFor(() => traced.length, "the error message");
 		assert.deepEqual(
 			traced.map(({ level, context }) => [level, context]),
 			[["msg.err", "Failed to updateNowPlaying!"]],

@@ -4,6 +4,7 @@ import "../../../test/hooks";
 
 import assert from "node:assert/strict";
 import { beforeEach, describe, test } from "node:test";
+import { waitFor } from "../../../test/waitFor";
 
 const fakeItem = (): any => ({
 	title: async () => "Song",
@@ -12,6 +13,7 @@ const fakeItem = (): any => ({
 	brainzId: async () => undefined,
 	isrc: async () => undefined,
 });
+/** Lets pending async work settle, only before checking that nothing happened */
 const flush = async () => {
 	for (let i = 0; i < 3; i++) await new Promise((res) => setImmediate(res));
 };
@@ -37,7 +39,7 @@ describe("ListenBrainz plugin", async () => {
 		const scrobble = t.mock.method(ListenBrainz, "scrobble", async () => new Response());
 		onMediaTransition(fakeItem());
 		onScrobble(fakeItem());
-		await flush();
+		await waitFor(() => nowPlaying.mock.callCount() && scrobble.mock.callCount(), "now playing and the listen");
 		assert.equal(nowPlaying.mock.calls[0].arguments[0]!.track_metadata.track_name, "Song");
 		assert.equal(scrobble.mock.calls[0].arguments[0]!.track_metadata.artist_name, "Artist");
 	});
@@ -57,7 +59,7 @@ describe("ListenBrainz plugin", async () => {
 			throw new Error("offline");
 		});
 		onScrobble(fakeItem());
-		await flush();
+		await waitFor(() => traced.length, "the error message");
 		assert.deepEqual(
 			traced.map(({ level, context }) => [level, context]),
 			[["msg.err", "Failed to scrobble!"]],

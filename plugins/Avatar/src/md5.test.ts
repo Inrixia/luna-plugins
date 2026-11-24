@@ -1,5 +1,5 @@
 // Run: pnpm exec tsx --test plugins/Avatar/src/md5.test.ts
-// Covers: md5.ts
+// Covers: md5.native.ts
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 

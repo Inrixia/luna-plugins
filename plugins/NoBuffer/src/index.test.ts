@@ -5,7 +5,9 @@ import "../../../test/hooks";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
 import { beforeEach, describe, test } from "node:test";
+import { waitFor } from "../../../test/waitFor";
 
+/** Lets pending async work settle, only before checking that nothing (more) happened */
 const flush = async () => {
 	for (let i = 0; i < 5; i++) await new Promise((res) => setImmediate(res));
 };
@@ -62,9 +64,12 @@ describe("NoBuffer", async () => {
 		const item = (id: number, playbackInfo: () => Promise<unknown> = async () => ({ id })): any => ({ id, playbackInfo });
 
 		test("downloads the playing track once to kick the CDN, and not again for the same track", async (t) => {
-			const fetchStream = t.mock.method(native, "fetchMediaItemStream", async () => Readable.from([Buffer.alloc(1)]));
+			const streams: Readable[] = [];
+			const fetchStream = t.mock.method(native, "fetchMediaItemStream", async () => streams[streams.push(Readable.from([Buffer.alloc(1)])) - 1]);
 			t.mock.method(MediaItem, "fromPlaybackContext", async () => item(1));
 			onState("STALLED");
+			await waitFor(() => streams[0]?.destroyed, "the first download to finish");
+			// Let the finished run settle, so the second STALLED is turned away by the played-track cache and not by the debounce of a running one
 			await flush();
 			onState("STALLED");
 			await flush();
@@ -90,7 +95,7 @@ describe("NoBuffer", async () => {
 				}),
 			);
 			onState("STALLED");
-			await flush();
+			await waitFor(() => traced.some(({ level, context }) => level === "err" && context === "playbackInfo"), "the playbackInfo error");
 			assert.equal(fetchStream.mock.callCount(), 0);
 			assert.ok(traced.some(({ level, context }) => level === "err" && context === "playbackInfo"));
 		});

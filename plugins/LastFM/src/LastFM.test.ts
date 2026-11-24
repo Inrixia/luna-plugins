@@ -5,11 +5,9 @@ import "../../../test/hooks";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { beforeEach, describe, test, type TestContext } from "node:test";
+import { waitFor } from "../../../test/waitFor";
 
 const md5 = (s: string) => createHash("md5").update(s, "utf8").digest("hex");
-const flush = async () => {
-	for (let i = 0; i < 3; i++) await new Promise((res) => setImmediate(res));
-};
 
 // This file loads as CommonJS (plugin package.jsons have no "type": "module"), so no top-level await: load the code in an async describe
 describe("LastFM", async () => {
@@ -116,6 +114,18 @@ describe("LastFM", async () => {
 			await assert.rejects(LastFM.scrobble({ track: "T", artist: "A", timestamp: "1" }), /Invalid session key/);
 		});
 
+		// Pins current behaviour: Last.fm answers most errors with a 4xx and the same JSON body, but ftch.json rejects on the status
+		// before the body is read, so the error is the HTTP status, not Last.fm's message
+		test("rejects with the HTTP status on a non 2xx response, without Last.fm's message", async (t) => {
+			t.mock.method(globalThis, "fetch", async () =>
+				Response.json({ error: 9, message: "Invalid session key" }, { status: 403, statusText: "Forbidden" }),
+			);
+			await assert.rejects(LastFM.scrobble({ track: "T", artist: "A", timestamp: "1" }), (err: Error) => {
+				assert.equal(err.message, "403 Forbidden");
+				return true;
+			});
+		});
+
 		test("rejects without a request when there is no session", async (t) => {
 			mockApi(t);
 			delete storage.session;
@@ -132,6 +142,18 @@ describe("LastFM", async () => {
 	});
 
 	describe("authenticate", () => {
+		const getSessions = () => requests.filter((params) => params.get("method") === "auth.getSession").length;
+		/** Moves the mocked clock a second at a time (each retry waits 1s) until `done()`, bounded by waitFor's timeout */
+		const tickUntil = (t: TestContext, done: () => boolean, what: string) => waitFor(() => done() || void t.mock.timers.tick(1000), what);
+		/** Tracks whether a promise has settled, without handling its rejection for the caller */
+		const settled = (promise: Promise<unknown>) => {
+			const state = { settled: false };
+			promise.then(
+				() => (state.settled = true),
+				() => (state.settled = true),
+			);
+			return state;
+		};
 		const authUrl = "https://www.last.fm/api/auth/?api_key=KEY&token=TOK";
 		// window is globalThis in tests (test/hooks), give it an open() to mock
 		(<any>globalThis).open ??= () => {};
@@ -148,10 +170,8 @@ describe("LastFM", async () => {
 			t.mock.timers.enable({ apis: ["setTimeout"] });
 
 			const result = LastFM.authenticate();
-			for (let i = 0; i < 5; i++) {
-				await flush();
-				t.mock.timers.tick(1000);
-			}
+			const state = settled(result);
+			await tickUntil(t, () => state.settled, "authenticate to return");
 			assert.deepEqual(await result, { session: { name: "u", key: "NEW", subscriber: 0 } });
 
 			assert.deepEqual(opened.mock.calls[0].arguments, [authUrl, "_blank"]);
@@ -170,12 +190,10 @@ describe("LastFM", async () => {
 
 			const result = LastFM.authenticate();
 			const rejected = assert.rejects(result, /Timed out waiting for user/);
-			for (let i = 0; i < 12; i++) {
-				await flush();
-				t.mock.timers.tick(1000);
-			}
+			const state = settled(result);
+			await tickUntil(t, () => state.settled, "authenticate to give up");
 			await rejected;
-			assert.equal(requests.filter((params) => params.get("method") === "auth.getSession").length, 10);
+			assert.equal(getSessions(), 10);
 		});
 	});
 });
