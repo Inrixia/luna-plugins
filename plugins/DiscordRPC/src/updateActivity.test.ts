@@ -122,6 +122,13 @@ describe("DiscordRPC updateActivity", async () => {
 		assert.deepEqual(sent, [{ activity: undefined, pipeId: 3 }]);
 	});
 
+	test("still sends a full activity while playing when displayOnPause is off", async (t) => {
+		settings.displayOnPause = false;
+		const activity = <any>(await run(t, fakeItem())).sent[0].activity;
+		assert.equal(activity.details, "Song");
+		assert.equal(activity.name, "Song by Artist A, Artist B");
+	});
+
 	test("has no playlist button for private playlists, non playlist sources, or when the setting is off", async (t) => {
 		const playButtons = async () => (<any>(await run(t, fakeItem())).sent[0].activity).buttons.map((b: any) => b.label);
 
@@ -153,7 +160,7 @@ describe("DiscordRPC updateActivity", async () => {
 	test("says Unknown Artist when the track has no artists, and has no large image without an album", async (t) => {
 		const activity = <any>(await run(t, fakeItem({ artists: [], album: false }))).sent[0].activity;
 		assert.equal(activity.state, "Unknown Artist");
-		// Pins current behaviour: with no artist the link is built from an undefined id (a broken URL, see COVERAGE.md)
+		// Pins current behaviour: with no artist the link is built from an undefined id (a broken URL: the artist id is undefined, so it is /artist/undefined/u)
 		assert.equal(activity.stateUrl, "https://tidal.com/artist/undefined/u");
 		assert.equal(activity.largeImageKey, undefined);
 	});

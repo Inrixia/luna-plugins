@@ -63,6 +63,12 @@ describe("PersistSettings", async () => {
 		);
 	});
 
+	test("treats a device with no force volume entry as off when stored off", () => {
+		storage.forceVolume = false;
+		redux.store.state.player.forceVolume = {};
+		assert.deepEqual(check(), []);
+	});
+
 	test("leaves shared device mode alone when exclusive mode is off", () => {
 		storage.exclusiveMode = false;
 		redux.store.state.player.activeDeviceMode = "shared";

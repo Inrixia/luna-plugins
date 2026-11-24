@@ -73,6 +73,15 @@ describe("RealMAX exclusions", async () => {
 			assert.equal((await findReplacement(item))?.id, 4);
 		});
 
+		test("keeps the best version when a lesser one that still beats the track comes after it", async (t) => {
+			settings.neverUse = { "2": "never" };
+			// A (MQA) is the best and sits in the middle. B (High) is better than the Low track but not than A, so it must not replace A
+			const candidates: Record<string, any> = { A: track(3, Quality.MQA), B: track(4, Quality.High) };
+			t.mock.method(MediaItem, "fromIsrc", async (isrc: string) => candidates[isrc]);
+			const item = track(1, Quality.Low, { max: track(2, Quality.HiRes), isrcs: ["A", "B"] });
+			assert.equal((await findReplacement(item))?.id, 3);
+		});
+
 		test("stops searching once a HiRes version is found", async (t) => {
 			settings.neverUse = { "2": "never" };
 			const looked: string[] = [];

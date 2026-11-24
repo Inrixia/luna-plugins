@@ -165,6 +165,23 @@ describe("RealMAX", async () => {
 			await onPreMediaTransition(tracks.b);
 			assert.deepEqual(calls, []);
 		});
+
+		test("prefetches the max version of the next item", async () => {
+			const looked: string[] = [];
+			PlayState.nextMediaItem = async () => ({ max: async () => (looked.push("next"), undefined) });
+			await onPreMediaTransition(tracks.b);
+			assert.deepEqual(looked, ["next"]);
+		});
+	});
+
+	describe("on preload", () => {
+		const [onPreload] = listeners.onPreload;
+
+		test("prefetches the max version of the preloaded item", async () => {
+			const looked: string[] = [];
+			await onPreload({ max: async () => (looked.push("preloaded"), undefined) });
+			assert.deepEqual(looked, ["preloaded"]);
+		});
 	});
 
 	describe("playlist builder", () => {
@@ -187,19 +204,34 @@ describe("RealMAX", async () => {
 		});
 
 		test("creates a [RealMAX] playlist with the max versions, keeping tracks without one", async (t) => {
-			track("amax", Quality.HiRes);
+			// Only the middle track has a better version, so a replacement must stay in its place
+			track("bmax", Quality.HiRes);
 			const create = t.mock.method(Playlist, "create", async () => undefined);
-			await onMediaItem({ mediaCollection: collection([tracks.a, tracks.b]), contextMenu: {} });
-			assert.equal(maxButton.text, "RealMAX 2 tracks");
+			await onMediaItem({ mediaCollection: collection([tracks.a, tracks.b, tracks.c]), contextMenu: {} });
+			assert.equal(maxButton.text, "RealMAX 3 tracks");
 			await maxButton.click!();
 			assert.equal(create.mock.callCount(), 1);
 			const [title, opts] = <[string, any]>create.mock.calls[0].arguments;
 			assert.equal(title, "[RealMAX] Mix");
 			assert.deepEqual(
 				opts.mediaItems.map(({ id }: any) => id),
-				["amax", "b"],
+				["a", "bmax", "c"],
 			);
-			assert.equal(maxButton.text, "RealMAX 2 tracks");
+			assert.equal(maxButton.text, "RealMAX 3 tracks");
+		});
+
+		test("does not trace a Found replacement popup for each track when displayInfoPopups is on", async (t) => {
+			settings.displayInfoPopups = true;
+			track("amax", Quality.HiRes);
+			track("bmax", Quality.HiRes);
+			const create = t.mock.method(Playlist, "create", async () => undefined);
+			await onMediaItem({ mediaCollection: collection([tracks.a, tracks.b]), contextMenu: {} });
+			await maxButton.click!();
+			assert.equal(create.mock.callCount(), 1);
+			assert.deepEqual(
+				traced.filter(({ level, args }) => level === "msg.log" && String(args[0]).startsWith("Found replacement")),
+				[],
+			);
 		});
 
 		test("creates no playlist when nothing has a better version", async (t) => {

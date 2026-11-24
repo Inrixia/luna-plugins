@@ -60,6 +60,7 @@ describe("SongDownloader helpers", async () => {
 			settings.pathFormat = "{trackNumberPadded} {trackNumber}";
 			assert.equal(await getFileName(fakeItem({ trackNumber: "3" })), "03 3.flac");
 			assert.equal(await getFileName(fakeItem({ trackNumber: "3", totalTracks: "12" })), "03 3.flac");
+			assert.equal(await getFileName(fakeItem({ trackNumber: "3", totalTracks: "5" })), "03 3.flac");
 			assert.equal(await getFileName(fakeItem({ trackNumber: "3", totalTracks: "120" })), "003 3.flac");
 			assert.equal(await getFileName(fakeItem({ trackNumber: "42", totalTracks: "5" })), "42 42.flac");
 		});

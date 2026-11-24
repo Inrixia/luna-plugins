@@ -26,6 +26,10 @@ describe("DiscordRPC activity text", async () => {
 			assert.equal(fmtStr("a"), "a ");
 		});
 
+		test("leaves a two character string unpadded", () => {
+			assert.equal(fmtStr("ab"), "ab");
+		});
+
 		test("leaves strings under 127 characters unchanged", () => {
 			const s = "x".repeat(126);
 			assert.equal(fmtStr(s), s);
@@ -49,6 +53,11 @@ describe("DiscordRPC activity text", async () => {
 		test("fills {album} and replaces every occurrence of a tag", async () => {
 			settings.customStatusText = "{album} | {track} | {album}";
 			assert.equal(await getStatusText(fakeItem({ title: "T", album: "LP" })), "LP | T | LP");
+		});
+
+		test("replaces every occurrence of {artist} and {track} too", async () => {
+			settings.customStatusText = "{artist} - {track} / {artist} - {track}";
+			assert.equal(await getStatusText(fakeItem({ title: "T", artists: ["A"] })), "A - T / A - T");
 		});
 
 		test("uses an empty string for {album} when the track has no album", async () => {

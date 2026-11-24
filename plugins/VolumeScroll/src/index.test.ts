@@ -59,6 +59,7 @@ describe("VolumeScroll", async () => {
 
 	test("uses changeByShift while shift is held", () => {
 		assert.deepEqual(scroll(-1, true), [["playbackControls/SET_VOLUME", 51]]);
+		assert.deepEqual(scroll(1, true), [["playbackControls/SET_VOLUME", 49]]);
 	});
 
 	test("keeps the volume between 0 and 100", () => {

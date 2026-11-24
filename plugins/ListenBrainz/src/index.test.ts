@@ -38,9 +38,14 @@ describe("ListenBrainz plugin", async () => {
 		const nowPlaying = t.mock.method(ListenBrainz, "updateNowPlaying", async () => new Response());
 		const scrobble = t.mock.method(ListenBrainz, "scrobble", async () => new Response());
 		onMediaTransition(fakeItem());
-		onScrobble(fakeItem());
-		await waitFor(() => nowPlaying.mock.callCount() && scrobble.mock.callCount(), "now playing and the listen");
+		await waitFor(() => nowPlaying.mock.callCount(), "now playing");
+		await flush();
+		assert.equal(scrobble.mock.callCount(), 0);
 		assert.equal(nowPlaying.mock.calls[0].arguments[0]!.track_metadata.track_name, "Song");
+		onScrobble(fakeItem());
+		await waitFor(() => scrobble.mock.callCount(), "the listen");
+		await flush();
+		assert.equal(nowPlaying.mock.callCount(), 1);
 		assert.equal(scrobble.mock.calls[0].arguments[0]!.track_metadata.artist_name, "Artist");
 	});
 
@@ -63,6 +68,18 @@ describe("ListenBrainz plugin", async () => {
 		assert.deepEqual(
 			traced.map(({ level, context }) => [level, context]),
 			[["msg.err", "Failed to scrobble!"]],
+		);
+	});
+
+	test("shows an error message when updating now playing fails", async (t) => {
+		t.mock.method(ListenBrainz, "updateNowPlaying", async () => {
+			throw new Error("offline");
+		});
+		onMediaTransition(fakeItem());
+		await waitFor(() => traced.length, "the error message");
+		assert.deepEqual(
+			traced.map(({ level, context }) => [level, context]),
+			[["msg.err", "Failed to update NowPlaying!"]],
 		);
 	});
 });

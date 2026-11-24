@@ -92,4 +92,16 @@ describe("LastFM plugin", async () => {
 			[["msg.err", "Failed to updateNowPlaying!"]],
 		);
 	});
+
+	test("shows an error message when a scrobble fails", async (t) => {
+		t.mock.method(LastFM, "scrobble", async () => {
+			throw new Error("offline");
+		});
+		onScrobble(fakeItem());
+		await waitFor(() => traced.length, "the error message");
+		assert.deepEqual(
+			traced.map(({ level, context }) => [level, context]),
+			[["msg.err", "Failed to scrobble!"]],
+		);
+	});
 });
