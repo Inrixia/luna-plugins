@@ -16,7 +16,8 @@
 		"watch": "concurrently npm:esWatch npm:serve",
 		"build": "rimraf ./dist && tsx esbuild.config.ts",
 		"esWatch": "rimraf ./dist && tsx ./esbuild.config.ts --watch",
-		"serve": "http-server ./dist -p 3000 -s --cors -c-1"
+		"serve": "http-server ./dist -p 3000 -s --cors -c-1",
+		"test": "tsx --test \"plugins/**/*.test.ts\""
 	},
 	"devDependencies": {
 		"@inrixia/helpers": "^3.21.2",
