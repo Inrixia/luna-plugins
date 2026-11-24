@@ -206,14 +206,28 @@ describe("RealMAX", async () => {
 
 		test("ignores a second click while a playlist is being made", async (t) => {
 			track("amax", Quality.HiRes);
-			let finish!: () => void;
-			const create = t.mock.method(Playlist, "create", () => new Promise<void>((res) => (finish = res)));
+			const finish: (() => void)[] = [];
+			const create = t.mock.method(Playlist, "create", () => new Promise<void>((res) => void finish.push(res)));
 			await onMediaItem({ mediaCollection: collection([tracks.a]), contextMenu: {} });
-			const first = maxButton.click!();
+			const settled = (click: Promise<unknown>) => {
+				const state = { done: false, click };
+				const done = () => void (state.done = true);
+				void click.then(done, done);
+				return state;
+			};
+			const first = settled(maxButton.click!());
 			await waitFor(() => create.mock.callCount(), "the first playlist create");
-			await maxButton.click!();
-			finish();
-			await first;
+			// The second click returns at once without a create of its own. Bounded waits: if it went on to create, it
+			// would wait on that create forever, so this fails instead of hanging
+			const second = settled(maxButton.click!());
+			try {
+				await waitFor(() => second.done, "the second click to return");
+				assert.equal(create.mock.callCount(), 1);
+			} finally {
+				for (const res of finish) res();
+			}
+			await waitFor(() => first.done, "the first click to finish");
+			await first.click;
 			assert.equal(create.mock.callCount(), 1);
 		});
 	});
