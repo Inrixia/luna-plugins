@@ -87,8 +87,18 @@ export const redux = {
 	actions: new Proxy(<Record<string, (payload?: unknown) => void>>{}, {
 		get: (_, type: string) => (payload?: unknown) => void dispatched.push({ type, payload }),
 	}),
-	intercept: (types: string | string[], _unloads: LunaUnloads, cb: (payload: any, action?: string) => unknown) => {
-		for (const type of Array.isArray(types) ? types : [types]) (intercepts[type] ??= []).push(cb);
+	/** Like the real one: the returned unload, also added to unloads, removes the callback again */
+	intercept: (types: string | string[], unloads: LunaUnloads, cb: (payload: any, action?: string) => unknown) => {
+		const list = Array.isArray(types) ? types : [types];
+		for (const type of list) (intercepts[type] ??= []).push(cb);
+		const unload = () => {
+			for (const type of list) {
+				const i = intercepts[type]?.indexOf(cb) ?? -1;
+				if (i !== -1) intercepts[type].splice(i, 1);
+			}
+		};
+		unloads.add(unload);
+		return unload;
 	},
 };
 
