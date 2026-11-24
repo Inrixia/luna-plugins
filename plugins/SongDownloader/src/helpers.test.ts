@@ -45,6 +45,7 @@ describe("SongDownloader helpers", async () => {
 			assert.equal(name, "ACDC/What Now yes.flac");
 		});
 
+		// Pins current behaviour: a literal "{year}" ends up in the file name
 		test("leaves tags that are missing as their {placeholder}", async () => {
 			settings.pathFormat = "{artist} - {year}";
 			assert.equal(await getFileName(fakeItem({ artist: ["A"] })), "A - {year}.flac");
@@ -63,6 +64,7 @@ describe("SongDownloader helpers", async () => {
 			assert.equal(await getFileName(fakeItem({ trackNumber: "42", totalTracks: "5" })), "42 42.flac");
 		});
 
+		// Pins current behaviour: a literal "{trackNumberPadded}" ends up in the file name
 		test("leaves {trackNumberPadded} when the track number is unknown", async () => {
 			settings.pathFormat = "{trackNumberPadded}";
 			assert.equal(await getFileName(fakeItem({})), "{trackNumberPadded}.flac");

@@ -61,14 +61,16 @@ describe("RealMAX exclusions", async () => {
 
 		test("when the max version is in neverUse, picks the best other version found by isrc", async (t) => {
 			settings.neverUse = { "2": "never" };
+			// A is the excluded max. B is better than the track but not the best and comes before the best (C), so taking the first better one gives B
 			const candidates: Record<string, any> = {
 				A: track(2, Quality.HiRes),
 				B: track(3, Quality.MQA),
-				C: track(4, Quality.Low),
+				C: track(4, Quality.HiRes),
+				D: track(5, Quality.Low),
 			};
 			t.mock.method(MediaItem, "fromIsrc", async (isrc: string) => candidates[isrc]);
-			const item = track(1, Quality.High, { max: candidates.A, isrcs: ["A", "B", "C", "missing"] });
-			assert.equal((await findReplacement(item))?.id, 3);
+			const item = track(1, Quality.High, { max: candidates.A, isrcs: ["A", "B", "C", "D", "missing"] });
+			assert.equal((await findReplacement(item))?.id, 4);
 		});
 
 		test("stops searching once a HiRes version is found", async (t) => {

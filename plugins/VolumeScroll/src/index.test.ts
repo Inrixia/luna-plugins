@@ -30,17 +30,24 @@ describe("VolumeScroll", async () => {
 		return dispatched.splice(0).map(({ type, payload }) => [type, (<any>payload).volume]);
 	};
 
+	/** The page loads: every SET_PAGE_ID interceptor runs once more */
+	const pageLoads = () => {
+		sliders = [slider];
+		for (const cb of intercepts["page/SET_PAGE_ID"]) cb(undefined);
+	};
+
 	beforeEach(() => {
 		Object.assign(storage, { changeBy: 10, changeByShift: 1 });
 		redux.store.state = { playbackControls: { volume: 50 } };
 		dispatched.length = 0;
+		// Each test starts with the slider hooked (hooking again is a no-op, see the first test)
+		if (slider.listeners.size === 0) pageLoads();
 	});
 
 	test("hooks the volume slider once the page loads, and only once", () => {
-		assert.equal(slider.wheelAdds, 0);
-		sliders = [slider];
-		for (const cb of intercepts["page/SET_PAGE_ID"]) cb(undefined);
-		for (const cb of intercepts["page/SET_PAGE_ID"]) cb(undefined);
+		// beforeEach hooked it; more page loads add nothing
+		pageLoads();
+		pageLoads();
 		assert.equal(slider.wheelAdds, 1);
 		assert.equal(slider.listeners.size, 1);
 	});

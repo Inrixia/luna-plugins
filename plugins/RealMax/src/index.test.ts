@@ -96,47 +96,54 @@ describe("RealMAX", async () => {
 	describe("playQueue moves", () => {
 		const [move] = intercepts["playQueue/MOVE_NEXT"];
 
-		test("MOVE_NEXT swaps the next queue element for its max version, then moves on", async () => {
-			track("cmax", Quality.HiRes);
-			assert.equal(move(undefined, "playQueue/MOVE_NEXT"), true);
-			await waitFor(() => calls.length >= 2, "the queue update and move");
-			assert.deepEqual(calls, [
-				["updatePlayQueue", { elements: [{ mediaItemId: "a" }, { mediaItemId: "b" }, { mediaItemId: "cmax" }], currentIndex: 1 }],
-				["next"],
-			]);
-		});
+			// Six elements a..f, playing c: the next (d), the previous (b) and a MOVE_TO target (e) are each neither first, last nor beside one another,
+			// and only the one the handler should look at has a max version, so looking at any other element finds nothing to swap
+			const ids = ["a", "b", "c", "d", "e", "f"];
+			const queueWith = (current: number, replaced: Record<number, string> = {}) => ({
+				elements: ids.map((id, i) => ({ mediaItemId: replaced[i] ?? id })),
+				currentIndex: current,
+			});
+			beforeEach(() => {
+				for (const id of ids) track(id);
+				PlayState.playQueue = queueWith(2);
+			});
 
-		test("MOVE_PREVIOUS looks at the previous element and MOVE_TO at the given index", async () => {
-			track("amax", Quality.HiRes);
-			move(undefined, "playQueue/MOVE_PREVIOUS");
-			await waitFor(() => calls.length >= 2, "the queue update and move");
-			assert.deepEqual(calls, [
-				["updatePlayQueue", { elements: [{ mediaItemId: "amax" }, { mediaItemId: "b" }, { mediaItemId: "c" }], currentIndex: 1 }],
-				["previous"],
-			]);
+			test("MOVE_NEXT swaps the next queue element for its max version, then moves on", async () => {
+				track("dmax", Quality.HiRes);
+				assert.equal(move(undefined, "playQueue/MOVE_NEXT"), true);
+				await waitFor(() => calls.length >= 2, "the queue update and move");
+				assert.deepEqual(calls, [["updatePlayQueue", queueWith(2, { 3: "dmax" })], ["next"]]);
+			});
 
-			calls.length = 0;
-			// Index 0 is not next to the current one (1), so taking "the next element" instead of the given one fails
-			move(0, "playQueue/MOVE_TO");
-			await waitFor(() => calls.length >= 2, "the queue update and move");
-			assert.deepEqual(calls, [
-				["updatePlayQueue", { elements: [{ mediaItemId: "amax" }, { mediaItemId: "b" }, { mediaItemId: "c" }], currentIndex: 1 }],
-				["moveTo", 0],
-			]);
-		});
+			test("MOVE_PREVIOUS looks at the previous element", async () => {
+				track("bmax", Quality.HiRes);
+				move(undefined, "playQueue/MOVE_PREVIOUS");
+				await waitFor(() => calls.length >= 2, "the queue update and move");
+				assert.deepEqual(calls, [["updatePlayQueue", queueWith(2, { 1: "bmax" })], ["previous"]]);
+			});
 
-		test("moves without touching the queue past its end or for kept versions", async () => {
-			PlayState.playQueue.currentIndex = 2;
-			move(undefined, "playQueue/MOVE_NEXT");
-			// next() is the handler's last call, so nothing else can follow it
-			await waitFor(() => calls.length, "the move");
-			assert.deepEqual(calls, [["next"]]);
+			test("MOVE_TO looks at the given index", async () => {
+				track("emax", Quality.HiRes);
+				move(4, "playQueue/MOVE_TO");
+				await waitFor(() => calls.length >= 2, "the queue update and move");
+				assert.deepEqual(calls, [["updatePlayQueue", queueWith(2, { 4: "emax" })], ["moveTo", 4]]);
+			});
 
-			calls.length = 0;
-			PlayState.playQueue.currentIndex = 1;
-			track("cmax", Quality.HiRes);
-			settings.keepVersion = { c: "kept" };
-			move(undefined, "playQueue/MOVE_NEXT");
+			test("moves without touching the queue past its end or for kept versions", async () => {
+				// At the end there is no next element: the first and last elements have max versions, which must not be picked up instead
+				PlayState.playQueue.currentIndex = 5;
+				track("amax", Quality.HiRes);
+				track("fmax", Quality.HiRes);
+				move(undefined, "playQueue/MOVE_NEXT");
+				// next() is the handler's last call, so nothing else can follow it
+				await waitFor(() => calls.length, "the move");
+				assert.deepEqual(calls, [["next"]]);
+
+				calls.length = 0;
+				PlayState.playQueue.currentIndex = 2;
+				track("dmax", Quality.HiRes);
+				settings.keepVersion = { d: "kept" };
+				move(undefined, "playQueue/MOVE_NEXT");
 			// next() is the handler's last call, so nothing else can follow it
 			await waitFor(() => calls.length, "the move");
 			assert.deepEqual(calls, [["next"]]);

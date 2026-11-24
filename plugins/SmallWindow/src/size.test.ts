@@ -37,6 +37,11 @@ describe("SmallWindow", async () => {
 	});
 
 	test("restoreLimits puts back the size from before the first removeLimits, even after removing twice", () => {
+		// Start from restored limits, whatever ran before
+		restoreLimits();
+		win.calls.length = 0;
+		// Two removals in a row: the second sees the window already at 0x0 and must not become the size to restore
+		removeLimits();
 		removeLimits();
 		restoreLimits();
 		assert.deepEqual(win.calls.at(-1), [800, 600]);
